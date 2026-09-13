@@ -16,7 +16,7 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { LayoutGrid, Network, UserPlus } from "lucide-react";
+import { LayoutGrid, Network, UserPlus, Printer } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { TreeData, Person, Family } from "@/types";
 import Navbar from "@/components/Navbar";
@@ -427,7 +427,30 @@ export default function FamilyTreePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (viewMode !== "CHART") {
+                setViewMode("CHART");
+              }
+              setTimeout(() => {
+                const printBtn = document.querySelector(".print-trigger-btn") as HTMLElement;
+                if (printBtn) {
+                  printBtn.click();
+                } else {
+                  window.print();
+                }
+              }, 250);
+            }}
+            className="h-8 gap-1.5 text-xs font-semibold shadow-2xs border-border hover:bg-muted"
+            title="Print or save entire family tree as PDF"
+          >
+            <Printer className="h-3.5 w-3.5 text-primary" />
+            <span>Print / PDF (प्रिन्ट)</span>
+          </Button>
+
           <Button
             size="sm"
             onClick={() => setAddPersonModalOpen(true)}

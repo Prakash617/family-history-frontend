@@ -444,11 +444,116 @@ export default function VamshavaliChartView({
   };
 
   const handlePrint = () => {
-    document.body.classList.add("printing-chart");
-    window.print();
+    // 1. Reset pan & zoom temporarily so in-page fallback is centered
+    const prevPan = { ...pan };
+    const prevZoom = zoom;
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+
+    const chartEl = document.getElementById("printable-vamshavali-chart");
+    if (!chartEl) {
+      document.body.classList.add("printing-chart");
+      window.print();
+      setTimeout(() => {
+        document.body.classList.remove("printing-chart");
+        setPan(prevPan);
+        setZoom(prevZoom);
+      }, 1000);
+      return;
+    }
+
+    // Measure natural width of the chart to compute precise fit scale
+    const contentWidth = Math.max(chartEl.scrollWidth, 1200);
+    const targetWidth = 1080;
+    const printScale = contentWidth > targetWidth ? Number((targetWidth / contentWidth).toFixed(2)) : 0.88;
+
+    // Collect all stylesheets from current document
+    const styleTags = Array.from(document.querySelectorAll("link[rel='stylesheet'], style"))
+      .map((tag) => tag.outerHTML)
+      .join("\n");
+
+    const printWindow = window.open("", "_blank", "width=1300,height=900");
+    if (!printWindow) {
+      // In-page print fallback if popup blocked
+      document.body.classList.add("printing-chart");
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+          document.body.classList.remove("printing-chart");
+          setPan(prevPan);
+          setZoom(prevZoom);
+        }, 1000);
+      }, 150);
+      return;
+    }
+
+    // Write dedicated, clean, standalone print document
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="ne">
+      <head>
+        <meta charset="UTF-8">
+        <title>${familyTitle} - कुल वंशावली तालिका</title>
+        ${styleTags}
+        <style>
+          @page {
+            size: landscape;
+            margin: 6mm;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            box-sizing: border-box;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #1e293b !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          .print-wrapper {
+            width: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            padding: 8px !important;
+            transform: scale(${printScale});
+            transform-origin: top center;
+          }
+          .bg-slate-400 {
+            background-color: #64748b !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-wrapper">
+          ${chartEl.innerHTML}
+        </div>
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.focus();
+              window.print();
+              window.onafterprint = function() { window.close(); };
+            }, 350);
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    // Restore pan & zoom after triggering print
     setTimeout(() => {
-      document.body.classList.remove("printing-chart");
-    }, 1000);
+      setPan(prevPan);
+      setZoom(prevZoom);
+    }, 500);
   };
 
   const familyTitle =
@@ -504,7 +609,7 @@ export default function VamshavaliChartView({
           variant="outline"
           size="sm"
           onClick={handlePrint}
-          className="h-8 gap-1 text-xs"
+          className="h-8 gap-1 text-xs print-trigger-btn"
         >
           <Printer className="h-4 w-4" />
           Print / PDF
