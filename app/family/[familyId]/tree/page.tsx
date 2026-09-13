@@ -231,6 +231,11 @@ export default function FamilyTreePage() {
     queryFn: () => apiRequest<{ results: Person[] }>(`/people/?family=${familyId}`),
   });
 
+  const { data: treeData } = useQuery<TreeData>({
+    queryKey: ["family-tree", familyId],
+    queryFn: () => apiRequest<TreeData>(`/families/${familyId}/tree/?depth=10`),
+  });
+
   const people = peopleData?.results || [];
 
   const handleSelectByName = (name: string) => {
@@ -439,26 +444,13 @@ export default function FamilyTreePage() {
 
         <main className="flex-1 relative overflow-auto">
           {viewMode === "CHART" ? (
-            isThapaLineage ? (
-              <VamshavaliChartView onSelectPersonByName={handleSelectByName} />
-            ) : (
-              <div className="flex flex-col items-center justify-center p-8 space-y-4 max-w-lg mx-auto my-16 bg-card rounded-2xl border border-border shadow-sm text-center">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <LayoutGrid className="h-6 w-6" />
-                </div>
-                <h2 className="text-xl font-bold text-foreground font-serif">
-                  Traditional Poster View
-                </h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  The printed traditional poster design is specifically formatted for the 6-generation <b>थापा परिवार वंशावली</b>.
-                  For <b>{family?.name || "your family"}</b>, please use the <b>Interactive Flow</b> view to view and manage all {people.length} member records.
-                </p>
-                <Button onClick={() => setViewMode("CANVAS")} className="gap-2">
-                  <Network className="h-4 w-4" />
-                  Switch to Interactive Canvas
-                </Button>
-              </div>
-            )
+            <VamshavaliChartView
+              family={family}
+              treeData={treeData}
+              people={people}
+              onSelectPersonByName={handleSelectByName}
+              onSelectPersonById={(id) => setSelectedPersonId(id)}
+            />
           ) : (
             <div className="w-full h-[calc(100vh-115px)]">
               <ReactFlowProvider>
