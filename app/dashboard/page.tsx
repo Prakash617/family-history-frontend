@@ -18,6 +18,8 @@ import {
   Trash2,
   Pencil,
   Settings,
+  Upload,
+  User as UserIcon,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
@@ -41,6 +43,7 @@ export default function DashboardPage() {
   const [newFamilyName, setNewFamilyName] = useState("");
   const [newFamilyDesc, setNewFamilyDesc] = useState("");
   const [newFamilyPrivacy, setNewFamilyPrivacy] = useState<"PUBLIC" | "PRIVATE" | "INVITE_ONLY">("PRIVATE");
+  const [createFamilyError, setCreateFamilyError] = useState<string | null>(null);
 
   // Edit & Delete Family Modal State
   const [familyToEdit, setFamilyToEdit] = useState<Family | null>(null);
@@ -121,6 +124,8 @@ export default function DashboardPage() {
   const [memberBiography, setMemberBiography] = useState("");
   const [memberRelationType, setMemberRelationType] = useState<"NONE" | "CHILD_OF" | "SPOUSE_OF" | "PARENT_OF">("NONE");
   const [memberRelatedPersonId, setMemberRelatedPersonId] = useState("");
+  const [memberPhotoFile, setMemberPhotoFile] = useState<File | null>(null);
+  const [memberPhotoPreview, setMemberPhotoPreview] = useState<string | null>(null);
   const [memberFormError, setMemberFormError] = useState<string | null>(null);
 
   const { data: familiesData, isLoading: familiesLoading } = useQuery({
@@ -165,6 +170,7 @@ export default function DashboardPage() {
       setNewFamilyName("");
       setNewFamilyDesc("");
       setNewFamilyPrivacy("PRIVATE");
+      setCreateFamilyError(null);
       toast({
         title: "Family Created (परिवार सिर्जना भयो)",
         description: `Successfully created ${newFamily.name} (${newFamily.privacy})`,
@@ -172,11 +178,21 @@ export default function DashboardPage() {
       });
       router.push(`/family/${newFamily.id}/tree`);
     },
+    onError: (err: any) => {
+      const msg = err?.message || "Could not create family tree. Please try again.";
+      setCreateFamilyError(msg);
+      toast({
+        title: "Create Failed (सिर्जना असफल भयो)",
+        description: msg,
+        type: "error",
+      });
+    },
   });
 
   const handleCreateFamily = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFamilyName.trim()) return;
+    setCreateFamilyError(null);
     createFamilyMutation.mutate({
       name: newFamilyName,
       description: newFamilyDesc,
@@ -195,6 +211,8 @@ export default function DashboardPage() {
     setMemberIsLiving(true);
     setMemberRelationType("NONE");
     setMemberRelatedPersonId("");
+    setMemberPhotoFile(null);
+    setMemberPhotoPreview(null);
     setMemberFormError(null);
   };
 
@@ -203,21 +221,25 @@ export default function DashboardPage() {
       const famId = selectedFamilyIdForMember || primaryFamily?.id;
       if (!famId) throw new Error("Please select or create a family tree first.");
 
+      const formData = new FormData();
+      formData.append("family", famId);
+      formData.append("first_name", memberFirstName.trim());
+      formData.append("middle_name", memberMiddleName.trim());
+      formData.append("last_name", memberLastName.trim());
+      formData.append("gender", memberGender);
+      formData.append("birth_year_approx", memberBirthYearApprox.trim());
+      formData.append("birth_place", memberBirthPlace.trim());
+      formData.append("occupation", memberOccupation.trim());
+      formData.append("biography", memberBiography.trim());
+      formData.append("is_living", String(memberIsLiving));
+      if (memberPhotoFile) {
+        formData.append("profile_photo", memberPhotoFile);
+      }
+
       // 1. Create Person
       const newPerson = await apiRequest<Person>("/people/", {
         method: "POST",
-        body: JSON.stringify({
-          family: famId,
-          first_name: memberFirstName,
-          middle_name: memberMiddleName,
-          last_name: memberLastName,
-          gender: memberGender,
-          birth_year_approx: memberBirthYearApprox,
-          birth_place: memberBirthPlace,
-          occupation: memberOccupation,
-          biography: memberBiography,
-          is_living: memberIsLiving,
-        }),
+        body: formData,
       });
 
       // 2. Create relationship if specified
@@ -341,7 +363,7 @@ export default function DashboardPage() {
                   Add Member (सदस्य थप्नुहोस्)
                 </Button>
               )}
-              <Button onClick={() => setCreateModalOpen(true)} className="gap-2 shadow-xs">
+              <Button onClick={() => { setCreateFamilyError(null); setCreateModalOpen(true); }} className="gap-2 shadow-xs">
                 <Plus className="h-4 w-4" />
                 Create New Family
               </Button>
@@ -428,7 +450,7 @@ export default function DashboardPage() {
                     Create your first family to begin recording ancestral lineages and relatives.
                   </p>
                 </div>
-                <Button onClick={() => setCreateModalOpen(true)}>Create Family</Button>
+                <Button onClick={() => { setCreateFamilyError(null); setCreateModalOpen(true); }}>Create Family</Button>
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -529,11 +551,20 @@ export default function DashboardPage() {
       {/* Create Family Modal */}
       <Modal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => {
+          setCreateFamilyError(null);
+          setCreateModalOpen(false);
+        }}
         title="Create New Family (नयाँ परिवार सिर्जना गर्नुहोस्)"
         description="Establish a new ancestral lineage container to start mapping relatives."
       >
         <form onSubmit={handleCreateFamily} className="space-y-4">
+          {createFamilyError && (
+            <div className="p-2.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs font-medium">
+              {createFamilyError}
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Family Name * (परिवारको नाम)</label>
             <Input
@@ -576,7 +607,14 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setCreateModalOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCreateFamilyError(null);
+                setCreateModalOpen(false);
+              }}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={createFamilyMutation.isPending}>
@@ -620,6 +658,56 @@ export default function DashboardPage() {
               </select>
             </div>
           )}
+
+          {/* Profile Photo Upload */}
+          <div className="flex items-center gap-3.5 p-3 rounded-xl border border-border bg-secondary/30">
+            <div className="relative h-14 w-14 rounded-full overflow-hidden bg-secondary border-2 border-primary/20 shrink-0 flex items-center justify-center">
+              {memberPhotoPreview ? (
+                <img src={memberPhotoPreview} alt="Preview" className="h-full w-full object-cover" />
+              ) : (
+                <UserIcon className="h-7 w-7 text-muted-foreground" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-1">
+              <label className="text-xs font-semibold text-foreground block">
+                Profile Photo (तस्विर) <span className="text-muted-foreground font-normal text-[10px]">(ऐच्छिक - Optional)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs">
+                  <Upload className="h-3 w-3" />
+                  <span>{memberPhotoPreview ? "Change Photo" : "Choose Photo"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setMemberPhotoFile(f);
+                        setMemberPhotoPreview(URL.createObjectURL(f));
+                      }
+                    }}
+                  />
+                </label>
+
+                {memberPhotoPreview && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-6 px-2 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      setMemberPhotoFile(null);
+                      setMemberPhotoPreview(null);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">

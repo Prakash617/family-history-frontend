@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { ZoomIn, ZoomOut, RotateCcw, Printer, Users, Hand, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TreeData, Person, Family } from "@/types";
+import { resolvePhotoUrl } from "@/lib/utils";
 
 export interface PosterPerson {
   id: string;
@@ -14,6 +15,7 @@ export interface PosterPerson {
   generation?: number;
   birthPlace?: string;
   occupation?: string;
+  photoUrl?: string | null;
 }
 
 export interface PosterNode {
@@ -84,6 +86,7 @@ function PosterCard({
   onClick: () => void;
 }) {
   const style = getCardStyle(person.gender, generation, isSpouse);
+  const photo = resolvePhotoUrl(person.photoUrl);
 
   return (
     <div
@@ -91,6 +94,18 @@ function PosterCard({
       className={`min-w-[135px] sm:min-w-[165px] max-w-[210px] px-3 py-2 sm:py-2.5 rounded-xl border-2 text-center cursor-pointer shadow-xs hover:scale-105 hover:shadow-md transition-all select-none ${style.bg} ${style.border} ${style.text}`}
       title={`${person.fullName} - क्लिक गरी विवरण हेर्नुहोस्`}
     >
+      {photo && (
+        <div className="mb-1.5 flex justify-center">
+          <img
+            src={photo}
+            alt={person.fullName}
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-white/80 shadow-xs"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = "none";
+            }}
+          />
+        </div>
+      )}
       <div className="font-bold text-xs sm:text-sm leading-snug break-words">
         {person.fullName}
       </div>
@@ -216,6 +231,7 @@ function buildPosterForest(treeData?: TreeData | null, people?: Person[]): Poste
         generation: n.data?.generation,
         birthPlace: n.data?.birthPlace,
         occupation: n.data?.occupation,
+        photoUrl: n.data?.photoUrl || null,
       });
     });
   }
@@ -223,7 +239,8 @@ function buildPosterForest(treeData?: TreeData | null, people?: Person[]): Poste
   // 2. Supplement from people array
   if (people) {
     people.forEach((p) => {
-      if (!personMap.has(p.id)) {
+      const existing = personMap.get(p.id);
+      if (!existing) {
         personMap.set(p.id, {
           id: p.id,
           fullName: p.full_name,
@@ -233,7 +250,10 @@ function buildPosterForest(treeData?: TreeData | null, people?: Person[]): Poste
           generation: 0,
           birthPlace: p.birth_place,
           occupation: p.occupation,
+          photoUrl: p.profile_photo || null,
         });
+      } else if (!existing.photoUrl && p.profile_photo) {
+        existing.photoUrl = p.profile_photo;
       }
     });
   }

@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2, AlertTriangle, Shield, User } from "lucide-react";
+import { Trash2, AlertTriangle, Shield, User, Upload, Image as ImageIcon } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { Person } from "@/types";
+import { resolvePhotoUrl } from "@/lib/utils";
 import { Modal } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,10 @@ export default function EditPersonModal({
   const [privacy, setPrivacy] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [notes, setNotes] = useState("");
 
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -66,21 +71,25 @@ export default function EditPersonModal({
       setBiography(person.biography || "");
       setPrivacy((person.privacy as any) || "PUBLIC");
       setNotes(person.notes || "");
+      setPhotoFile(null);
+      setPhotoPreview(person.profile_photo || null);
+      setRemovePhoto(false);
       setShowDeleteConfirm(false);
       setErrorMsg(null);
     }
   }, [person]);
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) =>
+    mutationFn: (formData: FormData) =>
       apiRequest<Person>(`/people/${person?.id}/`, {
         method: "PATCH",
-        body: JSON.stringify(data),
+        body: formData,
       }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ["family-people", familyId] });
       queryClient.invalidateQueries({ queryKey: ["family-tree", familyId] });
       queryClient.invalidateQueries({ queryKey: ["person-standalone", person?.id] });
+      queryClient.invalidateQueries({ queryKey: ["person-detail", person?.id] });
       queryClient.invalidateQueries({ queryKey: ["families"] });
       queryClient.invalidateQueries({ queryKey: ["family-dashboard", familyId] });
       toast({
@@ -133,29 +142,38 @@ export default function EditPersonModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+
     if (!firstName.trim()) {
-      setErrorMsg("First name is required.");
+      setErrorMsg("First Name is required.");
       return;
     }
 
-    updateMutation.mutate({
-      first_name: firstName.trim(),
-      middle_name: middleName.trim(),
-      last_name: lastName.trim(),
-      preferred_name: preferredName.trim(),
-      gender,
-      birth_year_approx: birthYearApprox.trim(),
-      birth_date: birthDate || null,
-      birth_place: birthPlace.trim(),
-      death_year_approx: deathYearApprox.trim(),
-      death_date: isLiving ? null : deathDate || null,
-      death_place: isLiving ? "" : deathPlace.trim(),
-      is_living: isLiving,
-      occupation: occupation.trim(),
-      biography: biography.trim(),
-      privacy,
-      notes: notes.trim(),
-    });
+    const formData = new FormData();
+    formData.append("first_name", firstName.trim());
+    formData.append("middle_name", middleName.trim());
+    formData.append("last_name", lastName.trim());
+    formData.append("preferred_name", preferredName.trim());
+    formData.append("gender", gender);
+    formData.append("birth_year_approx", birthYearApprox.trim());
+    if (birthDate) formData.append("birth_date", birthDate);
+    formData.append("birth_place", birthPlace.trim());
+    formData.append("death_year_approx", deathYearApprox.trim());
+    if (!isLiving && deathDate) formData.append("death_date", deathDate);
+    formData.append("death_place", isLiving ? "" : deathPlace.trim());
+    formData.append("is_living", String(isLiving));
+    formData.append("occupation", occupation.trim());
+    formData.append("biography", biography.trim());
+    formData.append("privacy", privacy);
+    formData.append("notes", notes.trim());
+
+    if (photoFile) {
+      formData.append("profile_photo", photoFile);
+    } else if (removePhoto) {
+      formData.append("profile_photo", "");
+    }
+
+    updateMutation.mutate(formData);
   };
 
   if (!person) return null;
@@ -208,6 +226,68 @@ export default function EditPersonModal({
               {errorMsg}
             </div>
           )}
+
+          {/* Profile Photo Section */}
+          <div className="flex items-center gap-4 p-3.5 rounded-xl border border-border bg-secondary/30">
+            <div className="relative h-16 w-16 rounded-full overflow-hidden bg-secondary border-2 border-primary/20 shrink-0 flex items-center justify-center">
+              {photoPreview ? (
+                <img
+                  src={resolvePhotoUrl(photoPreview)}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <User className="h-8 w-8 text-muted-foreground" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <label className="text-xs font-semibold text-foreground block">
+                Profile Photo (तस्विर)
+              </label>
+              <div className="flex items-center gap-2">
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs">
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>{photoPreview ? "Change Photo" : "Upload Photo"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setPhotoFile(f);
+                        setPhotoPreview(URL.createObjectURL(f));
+                        setRemovePhoto(false);
+                      }
+                    }}
+                  />
+                </label>
+
+                {photoPreview && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      setPhotoFile(null);
+                      setPhotoPreview(null);
+                      setRemovePhoto(true);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <span className="text-[10px] text-muted-foreground block">
+                Shown on family tree nodes, charts, and public lineage poster.
+              </span>
+            </div>
+          </div>
 
           {/* Names */}
           <div className="grid grid-cols-3 gap-2">

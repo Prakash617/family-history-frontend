@@ -2,12 +2,13 @@
 
 import React, { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { cn } from "@/lib/utils";
+import { cn, resolvePhotoUrl } from "@/lib/utils";
 
 export const PersonNode = memo(({ data, selected }: NodeProps) => {
   const nodeData = data as any;
   const isFemale = nodeData.gender === "FEMALE";
   const gen = nodeData.generation ?? 0;
+  const photoUrl = resolvePhotoUrl(nodeData.photoUrl);
 
   // Authentic color scheme inspired by traditional Nepali Vamshavali posters:
   // - Female/Spouses: Pink
@@ -35,7 +36,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps) => {
   return (
     <div
       className={cn(
-        "relative w-[190px] h-[58px] rounded-lg border-2 flex flex-col items-center justify-center px-2 py-1 text-center select-none cursor-pointer transition-all duration-150 font-sans",
+        "relative w-[210px] min-h-[60px] py-1.5 px-2.5 rounded-lg border-2 flex items-center justify-center select-none cursor-pointer transition-all duration-150 font-sans",
         cardColor,
         selected ? "ring-4 ring-primary/40 scale-105 shadow-lg !border-primary" : "hover:scale-105 hover:shadow-md"
       )}
@@ -61,15 +62,35 @@ export const PersonNode = memo(({ data, selected }: NodeProps) => {
         className="!w-1.5 !h-1.5 !bg-[#d97706] !border-none"
       />
 
-      {/* Main Bold Legible Nepali Name */}
-      <span className="text-[15px] sm:text-[16px] font-bold tracking-tight truncate w-full px-1">
-        {nodeData.fullName}
-      </span>
-
-      {/* Generation Tag */}
-      <span className="text-[10px] font-medium opacity-75 mt-0.5">
-        {nodeData.birthDisplay || `पुस्ता ${gen + 1}`}
-      </span>
+      {photoUrl ? (
+        <div className="flex items-center gap-2.5 w-full">
+          <img
+            src={photoUrl}
+            alt={nodeData.fullName}
+            className="w-10 h-10 rounded-full object-cover border-2 border-white/80 shadow-xs shrink-0"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = "none";
+            }}
+          />
+          <div className="flex-1 min-w-0 text-left">
+            <span className="text-[14px] sm:text-[15px] font-bold tracking-tight truncate block">
+              {nodeData.fullName}
+            </span>
+            <span className="text-[10px] font-medium opacity-80 block truncate">
+              {nodeData.birthDisplay || `पुस्ता ${gen + 1}`}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center w-full text-center">
+          <span className="text-[15px] sm:text-[16px] font-bold tracking-tight truncate w-full px-1">
+            {nodeData.fullName}
+          </span>
+          <span className="text-[10px] font-medium opacity-75 mt-0.5">
+            {nodeData.birthDisplay || `पुस्ता ${gen + 1}`}
+          </span>
+        </div>
+      )}
 
       {/* Bottom Handle for Children */}
       <Handle

@@ -15,9 +15,12 @@ import {
   ExternalLink,
   Pencil,
   Trash2,
+  Upload,
+  User as UserIcon,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { Person, Family } from "@/types";
+import { resolvePhotoUrl } from "@/lib/utils";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -65,6 +68,8 @@ export default function FamilyMembersPage() {
   const [memberPrivacy, setMemberPrivacy] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [relationType, setRelationType] = useState<"NONE" | "CHILD_OF" | "SPOUSE_OF" | "PARENT_OF">("NONE");
   const [relatedPersonId, setRelatedPersonId] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: family } = useQuery<Family>({
@@ -101,11 +106,11 @@ export default function FamilyMembersPage() {
   });
 
   const createPersonMutation = useMutation({
-    mutationFn: async (newPersonData: any) => {
+    mutationFn: async (formData: FormData) => {
       // 1. Create Person
       const newPerson = await apiRequest<Person>("/people/", {
         method: "POST",
-        body: JSON.stringify(newPersonData),
+        body: formData,
       });
 
       // 2. Create relationship if specified
@@ -182,13 +187,17 @@ export default function FamilyMembersPage() {
     setFirstName("");
     setMiddleName("");
     setLastName("");
+    setGender("MALE");
     setBirthYearApprox("");
     setBirthPlace("");
     setOccupation("");
-    setBiography("");
     setIsLiving(true);
+    setBiography("");
+    setMemberPrivacy("PUBLIC");
     setRelationType("NONE");
     setRelatedPersonId("");
+    setPhotoFile(null);
+    setPhotoPreview(null);
     setFormError(null);
   };
 
@@ -204,19 +213,23 @@ export default function FamilyMembersPage() {
       return;
     }
 
-    createPersonMutation.mutate({
-      family: familyId,
-      first_name: firstName,
-      middle_name: middleName,
-      last_name: lastName,
-      gender,
-      birth_year_approx: birthYearApprox,
-      birth_place: birthPlace,
-      occupation,
-      biography,
-      is_living: isLiving,
-      privacy: memberPrivacy,
-    });
+    const formData = new FormData();
+    formData.append("family", familyId);
+    formData.append("first_name", firstName.trim());
+    formData.append("middle_name", middleName.trim());
+    formData.append("last_name", lastName.trim());
+    formData.append("gender", gender);
+    formData.append("birth_year_approx", birthYearApprox.trim());
+    formData.append("birth_place", birthPlace.trim());
+    formData.append("occupation", occupation.trim());
+    formData.append("is_living", String(isLiving));
+    formData.append("biography", biography.trim());
+    formData.append("privacy", memberPrivacy);
+    if (photoFile) {
+      formData.append("profile_photo", photoFile);
+    }
+
+    createPersonMutation.mutate(formData);
   };
 
   return (
@@ -317,7 +330,7 @@ export default function FamilyMembersPage() {
                       <div className="flex items-start gap-3">
                         <div className="h-12 w-12 rounded-full overflow-hidden bg-secondary border border-border shrink-0 flex items-center justify-center font-bold text-primary">
                           {person.profile_photo ? (
-                            <img src={person.profile_photo} alt={person.full_name} className="h-full w-full object-cover" />
+                            <img src={resolvePhotoUrl(person.profile_photo)} alt={person.full_name} className="h-full w-full object-cover" />
                           ) : (
                             <span>{person.first_name[0]}{person.last_name?.[0] || ""}</span>
                           )}
@@ -436,6 +449,56 @@ export default function FamilyMembersPage() {
               {formError}
             </div>
           )}
+
+          {/* Profile Photo Upload */}
+          <div className="flex items-center gap-3.5 p-3 rounded-xl border border-border bg-secondary/30">
+            <div className="relative h-14 w-14 rounded-full overflow-hidden bg-secondary border-2 border-primary/20 shrink-0 flex items-center justify-center">
+              {photoPreview ? (
+                <img src={photoPreview} alt="Preview" className="h-full w-full object-cover" />
+              ) : (
+                <UserIcon className="h-7 w-7 text-muted-foreground" />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-1">
+              <label className="text-xs font-semibold text-foreground block">
+                Profile Photo (तस्विर) <span className="text-muted-foreground font-normal text-[10px]">(ऐच्छिक - Optional)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs">
+                  <Upload className="h-3 w-3" />
+                  <span>{photoPreview ? "Change Photo" : "Choose Photo"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setPhotoFile(f);
+                        setPhotoPreview(URL.createObjectURL(f));
+                      }
+                    }}
+                  />
+                </label>
+
+                {photoPreview && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-6 px-2 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      setPhotoFile(null);
+                      setPhotoPreview(null);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">

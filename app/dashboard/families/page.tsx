@@ -23,6 +23,7 @@ export default function DashboardFamiliesPage() {
   const [newFamilyName, setNewFamilyName] = useState("");
   const [newFamilyDesc, setNewFamilyDesc] = useState("");
   const [privacy, setPrivacy] = useState<"PUBLIC" | "PRIVATE" | "INVITE_ONLY">("PRIVATE");
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const [familyToDelete, setFamilyToDelete] = useState<Family | null>(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
@@ -70,13 +71,20 @@ export default function DashboardFamiliesPage() {
       setCreateModalOpen(false);
       setNewFamilyName("");
       setNewFamilyDesc("");
+      setCreateError(null);
       toast({ title: "Family Created", description: `Successfully created ${newFam.name}` });
+    },
+    onError: (err: any) => {
+      const msg = err?.message || "Could not create family tree. Please try again.";
+      setCreateError(msg);
+      toast({ title: "Create Failed", description: msg, type: "error" });
     },
   });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFamilyName.trim()) return;
+    setCreateError(null);
     createFamilyMutation.mutate({
       name: newFamilyName,
       description: newFamilyDesc,
@@ -102,7 +110,7 @@ export default function DashboardFamiliesPage() {
               </p>
             </div>
 
-            <Button onClick={() => setCreateModalOpen(true)} className="gap-1.5 text-xs">
+            <Button onClick={() => { setCreateError(null); setCreateModalOpen(true); }} className="gap-1.5 text-xs">
               <Plus className="h-4 w-4" />
               Create Family
             </Button>
@@ -117,7 +125,7 @@ export default function DashboardFamiliesPage() {
               <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                 Create a family lineage to begin recording historical members and relatives.
               </p>
-              <Button onClick={() => setCreateModalOpen(true)}>Create Family</Button>
+              <Button onClick={() => { setCreateError(null); setCreateModalOpen(true); }}>Create Family</Button>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -174,11 +182,20 @@ export default function DashboardFamiliesPage() {
       {/* Create Family Modal */}
       <Modal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => {
+          setCreateError(null);
+          setCreateModalOpen(false);
+        }}
         title="Create New Family Lineage"
         description="Establish a new family tree container."
       >
         <form onSubmit={handleCreate} className="space-y-4">
+          {createError && (
+            <div className="p-2.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs font-medium">
+              {createError}
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Family Name</label>
             <Input
@@ -212,7 +229,7 @@ export default function DashboardFamiliesPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setCreateModalOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => { setCreateError(null); setCreateModalOpen(false); }}>
               Cancel
             </Button>
             <Button type="submit" disabled={createFamilyMutation.isPending}>

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { Person, EventItem, Story, MediaItem } from "@/types";
+import { resolvePhotoUrl } from "@/lib/utils";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -103,7 +104,7 @@ export default function StandalonePersonProfilePage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-6 rounded-2xl border border-border bg-card shadow-sm">
             <div className="h-24 w-24 rounded-2xl overflow-hidden bg-secondary border border-border shrink-0 flex items-center justify-center font-bold text-3xl text-primary shadow-xs">
               {person.profile_photo ? (
-                <img src={person.profile_photo} alt={person.full_name} className="h-full w-full object-cover" />
+                <img src={resolvePhotoUrl(person.profile_photo)} alt={person.full_name} className="h-full w-full object-cover" />
               ) : (
                 <span>{person.first_name[0]}{person.last_name?.[0] || ""}</span>
               )}

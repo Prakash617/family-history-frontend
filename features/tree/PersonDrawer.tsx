@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import EditPersonModal from "./EditPersonModal";
 
+import { resolvePhotoUrl } from "@/lib/utils";
+
 interface PersonDrawerProps {
   personId: string | null;
   onClose: () => void;
@@ -41,7 +43,7 @@ export default function PersonDrawer({
           <div className="flex items-start gap-4 pb-4 border-b border-border">
             <div className="h-16 w-16 rounded-xl overflow-hidden bg-secondary border border-border shrink-0 flex items-center justify-center font-bold text-xl text-primary">
               {person.profile_photo ? (
-                <img src={person.profile_photo} alt={person.full_name} className="h-full w-full object-cover" />
+                <img src={resolvePhotoUrl(person.profile_photo)} alt={person.full_name} className="h-full w-full object-cover" />
               ) : (
                 <span>{person.first_name[0]}{person.last_name?.[0] || ""}</span>
               )}
