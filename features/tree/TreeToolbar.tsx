@@ -93,7 +93,7 @@ export default function TreeToolbar({
           <option value={2}>2 Gen</option>
           <option value={4}>4 Gen</option>
           <option value={6}>6 Gen</option>
-          <option value={10}>All</option>
+          <option value={10}>All (६ पुस्ता)</option>
         </select>
       </div>
 

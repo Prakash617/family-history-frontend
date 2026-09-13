@@ -32,7 +32,7 @@ const nodeTypes = {
 
 function TreeCanvas({ familyId }: { familyId: string }) {
   const { fitView, zoomIn, zoomOut, setCenter } = useReactFlow();
-  const [depth, setDepth] = useState(4);
+  const [depth, setDepth] = useState(10);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
 
