@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import QueryProvider from "@/providers/QueryProvider";
 import AuthInitializer from "@/components/AuthInitializer";
+import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Family Historical Tree",
@@ -21,8 +22,10 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-background text-foreground antialiased">
         <QueryProvider>
-          <AuthInitializer />
-          {children}
+          <ToastProvider>
+            <AuthInitializer />
+            {children}
+          </ToastProvider>
         </QueryProvider>
       </body>
     </html>
