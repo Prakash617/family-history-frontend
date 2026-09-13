@@ -99,26 +99,37 @@ export default function FamilyStoriesPage() {
                 <Card
                   key={story.id}
                   onClick={() => setSelectedStory(story)}
-                  className="border-border hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+                  className="border-border hover:border-primary/50 hover:shadow-md transition-all cursor-pointer overflow-hidden flex flex-col sm:flex-row"
                 >
-                  <CardHeader className="space-y-2 pb-2">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="h-3.5 w-3.5" />
-                        <span>{new Date(story.created_at).toLocaleDateString()}</span>
-                      </div>
-                      <Badge variant="outline">{story.status}</Badge>
+                  {story.cover_image && (
+                    <div className="sm:w-52 h-44 sm:h-auto shrink-0 relative bg-muted overflow-hidden">
+                      <img
+                        src={story.cover_image}
+                        alt={story.title}
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                        onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }}
+                      />
                     </div>
+                  )}
 
-                    <CardTitle className="text-xl font-serif text-foreground hover:text-primary transition-colors">
-                      {story.title}
-                    </CardTitle>
-                  </CardHeader>
+                  <div className="flex-1 flex flex-col justify-between p-5 space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span>{new Date(story.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <Badge variant="outline">{story.status}</Badge>
+                      </div>
 
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                      {story.content.replace(/[#*`>]/g, "")}
-                    </p>
+                      <CardTitle className="text-xl font-serif text-foreground hover:text-primary transition-colors">
+                        {story.title}
+                      </CardTitle>
+
+                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        {story.content.replace(/[#*`>]/g, "")}
+                      </p>
+                    </div>
 
                     {story.associated_people_details && story.associated_people_details.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border">
@@ -130,7 +141,7 @@ export default function FamilyStoriesPage() {
                         ))}
                       </div>
                     )}
-                  </CardContent>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -146,7 +157,17 @@ export default function FamilyStoriesPage() {
           title={selectedStory.title}
           description={`Preserved by ${selectedStory.author?.full_name || "Family Member"} on ${new Date(selectedStory.created_at).toLocaleDateString()}`}
         >
-          <div className="prose prose-sm dark:prose-invert max-w-none py-4 whitespace-pre-line text-foreground leading-relaxed">
+          {selectedStory.cover_image && (
+            <div className="w-full h-64 rounded-lg overflow-hidden mb-4 bg-muted">
+              <img
+                src={selectedStory.cover_image}
+                alt={selectedStory.title}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }}
+              />
+            </div>
+          )}
+          <div className="prose prose-sm dark:prose-invert max-w-none py-2 whitespace-pre-line text-foreground leading-relaxed">
             {selectedStory.content}
           </div>
           <div className="flex justify-end pt-4 border-t border-border">
