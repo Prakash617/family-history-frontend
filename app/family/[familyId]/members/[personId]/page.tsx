@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -16,6 +16,9 @@ import {
   Users as UsersIcon,
   BookOpen,
   Image as ImageIcon,
+  Pencil,
+  Trash2,
+  Shield,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { Person, EventItem, Story, MediaItem } from "@/types";
@@ -24,12 +27,15 @@ import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import EditPersonModal from "@/features/tree/EditPersonModal";
 
 export default function StandalonePersonProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const familyId = params.familyId as string;
   const personId = params.personId as string;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const { data: person, isLoading: personLoading } = useQuery<Person>({
     queryKey: ["person-standalone", personId],
@@ -112,6 +118,13 @@ export default function StandalonePersonProfilePage() {
                   {person.is_living ? "Living" : "Deceased"}
                 </Badge>
                 <Badge variant="outline">{person.gender}</Badge>
+                <Badge
+                  variant={person.privacy === "PUBLIC" ? "outline" : "secondary"}
+                  className="gap-1 text-[11px]"
+                >
+                  <Shield className="h-3 w-3 text-primary" />
+                  {person.privacy === "PUBLIC" ? "Public (सार्वजनिक)" : "Private (व्यक्तिगत)"}
+                </Badge>
               </div>
 
               <p className="text-sm font-semibold text-primary">{person.lifespan}</p>
@@ -138,9 +151,18 @@ export default function StandalonePersonProfilePage() {
               </div>
             </div>
 
-            <div className="shrink-0 pt-2 sm:pt-0">
+            <div className="shrink-0 flex flex-wrap sm:flex-col gap-2 pt-2 sm:pt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditModalOpen(true)}
+                className="gap-1.5 text-xs font-medium border-primary/40 hover:bg-primary/10 hover:text-primary"
+              >
+                <Pencil className="h-3.5 w-3.5 text-primary" />
+                सम्पादन (Edit Details)
+              </Button>
               <Link href={`/family/${familyId}/tree`}>
-                <Button className="gap-2 text-xs">
+                <Button className="gap-2 text-xs w-full" size="sm">
                   <TreePine className="h-4 w-4" />
                   View in Tree
                 </Button>
@@ -316,6 +338,17 @@ export default function StandalonePersonProfilePage() {
               </div>
             </div>
           )}
+
+          {/* Edit / Delete Person Modal */}
+          <EditPersonModal
+            isOpen={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            person={person}
+            familyId={familyId}
+            onDeleteSuccess={() => {
+              router.push(`/family/${familyId}/members`);
+            }}
+          />
         </main>
       </div>
     </div>

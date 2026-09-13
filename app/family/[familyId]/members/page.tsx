@@ -13,9 +13,11 @@ import {
   MapPin,
   Briefcase,
   ExternalLink,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
-import { Person } from "@/types";
+import { Person, Family } from "@/types";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/dialog";
 import PersonDrawer from "@/features/tree/PersonDrawer";
 import QuickAddModal from "@/features/tree/QuickAddModal";
+import EditPersonModal from "@/features/tree/EditPersonModal";
 import { useToast } from "@/components/ui/toast";
 
 export default function FamilyMembersPage() {
@@ -38,6 +41,10 @@ export default function FamilyMembersPage() {
   const [genderFilter, setGenderFilter] = useState("ALL");
   const [livingFilter, setLivingFilter] = useState("ALL");
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+
+  // Edit / Delete Modal State
+  const [personToEdit, setPersonToEdit] = useState<Person | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Quick Add Modal state
   const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
@@ -55,9 +62,15 @@ export default function FamilyMembersPage() {
   const [occupation, setOccupation] = useState("");
   const [isLiving, setIsLiving] = useState(true);
   const [biography, setBiography] = useState("");
+  const [memberPrivacy, setMemberPrivacy] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [relationType, setRelationType] = useState<"NONE" | "CHILD_OF" | "SPOUSE_OF" | "PARENT_OF">("NONE");
   const [relatedPersonId, setRelatedPersonId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+
+  const { data: family } = useQuery<Family>({
+    queryKey: ["family", familyId],
+    queryFn: () => apiRequest<Family>(`/families/${familyId}/`),
+  });
 
   const { data: peopleData, isLoading } = useQuery<{ results: Person[] }>({
     queryKey: ["family-people", familyId],
@@ -202,6 +215,7 @@ export default function FamilyMembersPage() {
       occupation,
       biography,
       is_living: isLiving,
+      privacy: memberPrivacy,
     });
   };
 
@@ -216,11 +230,18 @@ export default function FamilyMembersPage() {
           {/* Top Title & Actions */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-serif">
-                People & Members
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Manage individuals, ancestors, and biographical records in this family.
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-serif">
+                  {family?.name || "People & Members"}
+                </h1>
+                {family && (
+                  <Badge variant="outline" className="text-xs font-medium">
+                    {family.privacy === "PUBLIC" ? "🌐 Public" : family.privacy === "PRIVATE" ? "🔒 Private" : "✉️ Invite Only"}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
+                {family?.description || "Manage individuals, ancestors, and biographical records in this family lineage."}
               </p>
             </div>
 
@@ -233,7 +254,7 @@ export default function FamilyMembersPage() {
               </Link>
               <Button onClick={() => setAddModalOpen(true)} className="gap-1.5 text-xs">
                 <Plus className="h-4 w-4" />
-                Add Person
+                Add Member (सदस्य थप्नुहोस्)
               </Button>
             </div>
           </div>
@@ -289,41 +310,93 @@ export default function FamilyMembersPage() {
               {filteredPeople.map((person) => (
                 <Card
                   key={person.id}
-                  onClick={() => setSelectedPersonId(person.id)}
-                  className="border-border hover:border-primary/50 hover:shadow-md transition-all cursor-pointer select-none"
+                  className="border-border hover:border-primary/50 hover:shadow-md transition-all select-none group flex flex-col justify-between"
                 >
-                  <CardContent className="p-4 flex items-start gap-3">
-                    <div className="h-12 w-12 rounded-full overflow-hidden bg-secondary border border-border shrink-0 flex items-center justify-center font-bold text-primary">
-                      {person.profile_photo ? (
-                        <img src={person.profile_photo} alt={person.full_name} className="h-full w-full object-cover" />
-                      ) : (
-                        <span>{person.first_name[0]}{person.last_name?.[0] || ""}</span>
+                  <CardContent className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                    <div className="space-y-3 cursor-pointer" onClick={() => setSelectedPersonId(person.id)}>
+                      <div className="flex items-start gap-3">
+                        <div className="h-12 w-12 rounded-full overflow-hidden bg-secondary border border-border shrink-0 flex items-center justify-center font-bold text-primary">
+                          {person.profile_photo ? (
+                            <img src={person.profile_photo} alt={person.full_name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span>{person.first_name[0]}{person.last_name?.[0] || ""}</span>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <h4 className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">{person.full_name}</h4>
+                            <Badge variant={person.is_living ? "success" : "secondary"} className="text-[10px] px-1.5 py-0">
+                              {person.is_living ? "Living" : "Deceased"}
+                            </Badge>
+                          </div>
+
+                          <p className="text-xs font-medium text-primary mt-0.5">{person.lifespan}</p>
+
+                          {person.birth_place && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1 truncate">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{person.birth_place}</span>
+                            </div>
+                          )}
+
+                          {person.occupation && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 truncate">
+                              <Briefcase className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{person.occupation}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Description / Biography snippet if present */}
+                      {person.biography && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 bg-secondary/30 p-2 rounded-md border border-border/50 italic">
+                          "{person.biography}"
+                        </p>
                       )}
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className="font-semibold text-sm text-foreground truncate">{person.full_name}</h4>
-                        <Badge variant={person.is_living ? "success" : "secondary"} className="text-[10px] px-1.5 py-0">
-                          {person.is_living ? "Living" : "Deceased"}
-                        </Badge>
+                    {/* Action Bar with Edit & Delete */}
+                    <div className="flex items-center justify-between gap-1 pt-2 border-t border-border mt-auto">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs px-2 gap-1 text-primary hover:bg-primary/10"
+                        onClick={() => setSelectedPersonId(person.id)}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Details
+                      </Button>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1 font-medium hover:bg-muted"
+                          onClick={() => {
+                            setPersonToEdit(person);
+                            setEditModalOpen(true);
+                          }}
+                          title="Edit member details"
+                        >
+                          <Pencil className="h-3 w-3 text-primary" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs px-2 gap-1 font-medium text-destructive hover:bg-destructive/10 border-destructive/30"
+                          onClick={() => {
+                            setPersonToEdit(person);
+                            setEditModalOpen(true);
+                          }}
+                          title="Delete member"
+                        >
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                          Delete
+                        </Button>
                       </div>
-
-                      <p className="text-xs font-medium text-primary mt-0.5">{person.lifespan}</p>
-
-                      {person.birth_place && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1 truncate">
-                          <MapPin className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{person.birth_place}</span>
-                        </div>
-                      )}
-
-                      {person.occupation && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 truncate">
-                          <Briefcase className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{person.occupation}</span>
-                        </div>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -438,13 +511,25 @@ export default function FamilyMembersPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Birth Year (or Approx)</label>
-              <Input
-                placeholder="e.g. 1965 or circa 1920"
-                value={birthYearApprox}
-                onChange={(e) => setBirthYearApprox(e.target.value)}
-              />
+              <label className="text-xs font-medium text-muted-foreground">Privacy (गोपनीयता)</label>
+              <select
+                value={memberPrivacy}
+                onChange={(e) => setMemberPrivacy(e.target.value as any)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none font-medium"
+              >
+                <option value="PUBLIC">🌐 Public (सार्वजनिक)</option>
+                <option value="PRIVATE">🔒 Private (गोप्य)</option>
+              </select>
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Birth Year (or Approx)</label>
+            <Input
+              placeholder="e.g. 1965 or circa 1920"
+              value={birthYearApprox}
+              onChange={(e) => setBirthYearApprox(e.target.value)}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -481,7 +566,7 @@ export default function FamilyMembersPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Biography / Notes</label>
+            <label className="text-xs font-medium text-muted-foreground">Biography / Notes (विवरण तथा जीवनी)</label>
             <textarea
               rows={3}
               placeholder="Life summary, notable achievements, memories..."
@@ -501,6 +586,21 @@ export default function FamilyMembersPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Edit / Delete Person Modal */}
+      <EditPersonModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setPersonToEdit(null);
+        }}
+        person={personToEdit}
+        familyId={familyId}
+        onDeleteSuccess={() => {
+          setPersonToEdit(null);
+          setEditModalOpen(false);
+        }}
+      />
     </div>
   );
 }

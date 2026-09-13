@@ -1,13 +1,14 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { User, Heart, Baby, Users as UsersIcon, MapPin, Briefcase, Plus, ExternalLink } from "lucide-react";
+import { User, Heart, Baby, Users as UsersIcon, MapPin, Briefcase, Plus, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { Person } from "@/types";
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import EditPersonModal from "./EditPersonModal";
 
 interface PersonDrawerProps {
   personId: string | null;
@@ -22,6 +23,8 @@ export default function PersonDrawer({
   onSelectPerson,
   onQuickAdd,
 }: PersonDrawerProps) {
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
   const { data: person, isLoading } = useQuery<Person>({
     queryKey: ["person-detail", personId],
     queryFn: () => apiRequest<Person>(`/people/${personId}/`),
@@ -45,8 +48,15 @@ export default function PersonDrawer({
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold text-foreground font-serif truncate">{person.full_name}</h3>
+              <div className="flex items-center justify-between gap-1">
+                <h3 className="font-bold text-lg text-foreground truncate">{person.full_name}</h3>
+                <a
+                  href={`/family/${person.family}/members/${person.id}`}
+                  className="text-muted-foreground hover:text-primary p-1"
+                  title="View Full Profile"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
               </div>
               <p className="text-xs font-semibold text-primary mt-0.5">{person.lifespan}</p>
 
@@ -55,14 +65,40 @@ export default function PersonDrawer({
                   {person.is_living ? "Living" : "Deceased"}
                 </Badge>
                 <Badge variant="outline">{person.gender}</Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {person.privacy === "PUBLIC" ? "🌐 Public" : "🔒 Private"}
+                </Badge>
               </div>
             </div>
+          </div>
+
+          {/* Edit & Delete Action Buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1.5 text-xs font-semibold hover:bg-secondary border-border"
+              onClick={() => setEditModalOpen(true)}
+            >
+              <Pencil className="h-3.5 w-3.5 text-primary" />
+              <span>Edit Details (सम्पादन)</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 border-destructive/30"
+              onClick={() => setEditModalOpen(true)}
+              title="Delete member"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              <span>Delete</span>
+            </Button>
           </div>
 
           {/* Quick Add Relative Actions */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Quick Actions
+              Quick Connect Relatives
             </label>
             <div className="grid grid-cols-3 gap-2">
               <Button
@@ -203,6 +239,18 @@ export default function PersonDrawer({
       ) : (
         <div className="py-12 text-center text-sm text-muted-foreground">No person selected.</div>
       )}
+
+      {/* Edit / Delete Person Modal */}
+      <EditPersonModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        person={person || null}
+        familyId={person?.family || ""}
+        onDeleteSuccess={() => {
+          setEditModalOpen(false);
+          onClose();
+        }}
+      />
     </Drawer>
   );
 }

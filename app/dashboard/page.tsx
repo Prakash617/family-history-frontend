@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newFamilyName, setNewFamilyName] = useState("");
   const [newFamilyDesc, setNewFamilyDesc] = useState("");
+  const [newFamilyPrivacy, setNewFamilyPrivacy] = useState<"PUBLIC" | "PRIVATE" | "INVITE_ONLY">("PRIVATE");
 
   // Add Member Modal State
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
@@ -85,7 +86,7 @@ export default function DashboardPage() {
   });
 
   const createFamilyMutation = useMutation({
-    mutationFn: (data: { name: string; description: string }) =>
+    mutationFn: (data: { name: string; description: string; privacy: string }) =>
       apiRequest<Family>("/families/", {
         method: "POST",
         body: JSON.stringify(data),
@@ -95,6 +96,12 @@ export default function DashboardPage() {
       setCreateModalOpen(false);
       setNewFamilyName("");
       setNewFamilyDesc("");
+      setNewFamilyPrivacy("PRIVATE");
+      toast({
+        title: "Family Created (परिवार सिर्जना भयो)",
+        description: `Successfully created ${newFamily.name} (${newFamily.privacy})`,
+        type: "success",
+      });
       router.push(`/family/${newFamily.id}/tree`);
     },
   });
@@ -105,6 +112,7 @@ export default function DashboardPage() {
     createFamilyMutation.mutate({
       name: newFamilyName,
       description: newFamilyDesc,
+      privacy: newFamilyPrivacy,
     });
   };
 
@@ -424,26 +432,48 @@ export default function DashboardPage() {
       <Modal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        title="Create New Family"
-        description="Establish a new family lineage container to start mapping ancestors."
+        title="Create New Family (नयाँ परिवार सिर्जना गर्नुहोस्)"
+        description="Establish a new ancestral lineage container to start mapping relatives."
       >
         <form onSubmit={handleCreateFamily} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Family Name</label>
+            <label className="text-xs font-medium text-muted-foreground">Family Name * (परिवारको नाम)</label>
             <Input
               required
-              placeholder="e.g. Thapa Dynasty or Smith-Johnson Family"
+              placeholder="e.g. थापा परिवार वंशावली or Smith-Johnson Family"
               value={newFamilyName}
               onChange={(e) => setNewFamilyName(e.target.value)}
             />
           </div>
 
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Visibility & Privacy (गोपनीयता छनौट)</label>
+            <select
+              value={newFamilyPrivacy}
+              onChange={(e) => setNewFamilyPrivacy(e.target.value as any)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs sm:text-sm text-foreground outline-none font-medium"
+            >
+              <option value="PRIVATE">🔒 Private (गोप्य) — Only invited members can view or edit</option>
+              <option value="PUBLIC">🌐 Public (सार्वजनिक) — Anyone with the link can view historical lineage</option>
+              <option value="INVITE_ONLY">✉️ Invite Only (निमन्त्रणा मात्र) — Strictly restricted to invited members</option>
+            </select>
+            <p className="text-[11px] text-muted-foreground">
+              {newFamilyPrivacy === "PUBLIC"
+                ? "Public trees can be explored by anyone with the link, perfect for published clan genealogies."
+                : newFamilyPrivacy === "PRIVATE"
+                ? "Private trees are strictly protected; only you and members you invite can see names and relatives."
+                : "Invite-only trees require secure invitation tokens to access."}
+            </p>
+          </div>
+
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Description (Optional)</label>
-            <Input
-              placeholder="Brief description of origin or history"
+            <label className="text-xs font-medium text-muted-foreground">Description & History (विवरण तथा पुर्ख्यौली पृष्ठभूमि)</label>
+            <textarea
+              rows={3}
+              placeholder="e.g. Origin from Lamjung, Nepal. Ancestral lineage spanning 6 generations..."
               value={newFamilyDesc}
               onChange={(e) => setNewFamilyDesc(e.target.value)}
+              className="w-full rounded-md border border-input bg-background p-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 

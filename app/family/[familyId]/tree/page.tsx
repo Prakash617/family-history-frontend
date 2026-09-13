@@ -22,6 +22,7 @@ import { TreeData, Person, Family } from "@/types";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -199,6 +200,7 @@ export default function FamilyTreePage() {
   const [occupation, setOccupation] = useState("");
   const [isLiving, setIsLiving] = useState(true);
   const [biography, setBiography] = useState("");
+  const [memberPrivacy, setMemberPrivacy] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [relationType, setRelationType] = useState<"NONE" | "CHILD_OF" | "SPOUSE_OF" | "PARENT_OF">("NONE");
   const [relatedPersonId, setRelatedPersonId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -365,6 +367,7 @@ export default function FamilyTreePage() {
       occupation,
       biography,
       is_living: isLiving,
+      privacy: memberPrivacy,
     });
   };
 
@@ -373,9 +376,26 @@ export default function FamilyTreePage() {
       <Navbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
       {/* View Mode Switcher Header */}
-      <div className="border-b border-border bg-card px-4 py-2 flex flex-wrap items-center justify-between gap-3 shadow-2xs z-30">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">दृष्टिकोण (View):</span>
+      <div className="border-b border-border bg-card px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs z-30">
+        <div className="flex items-center gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-base text-foreground font-serif leading-tight">
+                {family?.name || "Family Tree"}
+              </h2>
+              {family && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium">
+                  {family.privacy === "PUBLIC" ? "🌐 Public" : family.privacy === "PRIVATE" ? "🔒 Private" : "✉️ Invite Only"}
+                </Badge>
+              )}
+            </div>
+            {family?.description && (
+              <p className="text-[11px] text-muted-foreground line-clamp-1 max-w-md mt-0.5">
+                {family.description}
+              </p>
+            )}
+          </div>
+
           <div className="inline-flex p-1 rounded-lg bg-secondary border border-border">
             <button
               onClick={() => setViewMode("CHART")}
@@ -543,7 +563,7 @@ export default function FamilyTreePage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Gender</label>
               <select
@@ -551,9 +571,21 @@ export default function FamilyTreePage() {
                 onChange={(e) => setGender(e.target.value as any)}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none"
               >
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
+                <option value="MALE">Male (पुरुष)</option>
+                <option value="FEMALE">Female (महिला)</option>
+                <option value="OTHER">Other (अन्य)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Privacy (गोपनीयता)</label>
+              <select
+                value={memberPrivacy}
+                onChange={(e) => setMemberPrivacy(e.target.value as any)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none"
+              >
+                <option value="PUBLIC">Public (सबैले देख्ने)</option>
+                <option value="PRIVATE">Private (परिवार मात्र)</option>
               </select>
             </div>
 
