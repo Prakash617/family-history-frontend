@@ -24,17 +24,25 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/dialog";
 import PersonDrawer from "@/features/tree/PersonDrawer";
+import QuickAddModal from "@/features/tree/QuickAddModal";
+import { useToast } from "@/components/ui/toast";
 
 export default function FamilyMembersPage() {
   const params = useParams();
   const familyId = params.familyId as string;
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [genderFilter, setGenderFilter] = useState("ALL");
   const [livingFilter, setLivingFilter] = useState("ALL");
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+
+  // Quick Add Modal state
+  const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<"CHILD" | "SPOUSE" | "PARENT" | null>(null);
+  const [quickAddTarget, setQuickAddTarget] = useState<Person | null>(null);
 
   // Add Member Modal State
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -47,6 +55,9 @@ export default function FamilyMembersPage() {
   const [occupation, setOccupation] = useState("");
   const [isLiving, setIsLiving] = useState(true);
   const [biography, setBiography] = useState("");
+  const [relationType, setRelationType] = useState<"NONE" | "CHILD_OF" | "SPOUSE_OF" | "PARENT_OF">("NONE");
+  const [relatedPersonId, setRelatedPersonId] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const { data: peopleData, isLoading } = useQuery<{ results: Person[] }>({
     queryKey: ["family-people", familyId],
@@ -54,6 +65,12 @@ export default function FamilyMembersPage() {
   });
 
   const people = peopleData?.results || [];
+
+  const handleQuickAdd = (type: "CHILD" | "SPOUSE" | "PARENT", person: Person) => {
+    setQuickAddType(type);
+    setQuickAddTarget(person);
+    setQuickAddModalOpen(true);
+  };
 
   const filteredPeople = people.filter((p) => {
     const matchesSearch =
@@ -71,16 +88,80 @@ export default function FamilyMembersPage() {
   });
 
   const createPersonMutation = useMutation({
-    mutationFn: (newPersonData: any) =>
-      apiRequest<Person>("/people/", {
+    mutationFn: async (newPersonData: any) => {
+      // 1. Create Person
+      const newPerson = await apiRequest<Person>("/people/", {
         method: "POST",
         body: JSON.stringify(newPersonData),
-      }),
-    onSuccess: () => {
+      });
+
+      // 2. Create relationship if specified
+      if (relationType === "CHILD_OF" && relatedPersonId) {
+        await apiRequest("/relationships/", {
+          method: "POST",
+          body: JSON.stringify({
+            family: familyId,
+            person_a: relatedPersonId, // Parent
+            person_b: newPerson.id,    // Child
+            relationship_type: "PARENT_CHILD",
+            relationship_subtype: "BIOLOGICAL",
+          }),
+        });
+      } else if (relationType === "PARENT_OF" && relatedPersonId) {
+        await apiRequest("/relationships/", {
+          method: "POST",
+          body: JSON.stringify({
+            family: familyId,
+            person_a: newPerson.id,    // Parent
+            person_b: relatedPersonId, // Child
+            relationship_type: "PARENT_CHILD",
+            relationship_subtype: "BIOLOGICAL",
+          }),
+        });
+      } else if (relationType === "SPOUSE_OF" && relatedPersonId) {
+        await apiRequest("/marriages/", {
+          method: "POST",
+          body: JSON.stringify({
+            family: familyId,
+            partner_1: relatedPersonId,
+            partner_2: newPerson.id,
+            partnership_type: "MARRIAGE",
+            end_reason: "ONGOING",
+          }),
+        });
+        await apiRequest("/relationships/", {
+          method: "POST",
+          body: JSON.stringify({
+            family: familyId,
+            person_a: relatedPersonId,
+            person_b: newPerson.id,
+            relationship_type: "SPOUSE",
+          }),
+        });
+      }
+
+      return newPerson;
+    },
+    onSuccess: (newPerson) => {
       queryClient.invalidateQueries({ queryKey: ["family-people", familyId] });
       queryClient.invalidateQueries({ queryKey: ["family-tree", familyId] });
+      queryClient.invalidateQueries({ queryKey: ["families"] });
+      queryClient.invalidateQueries({ queryKey: ["family-dashboard", familyId] });
       setAddModalOpen(false);
       resetForm();
+      toast({
+        title: "Member Added (सदस्य थपियो)",
+        description: `${newPerson.full_name} has been added successfully.`,
+        type: "success",
+      });
+    },
+    onError: (err: any) => {
+      setFormError(err?.message || "Failed to add member. Please verify required fields.");
+      toast({
+        title: "Error",
+        description: err?.message || "Could not add family member.",
+        type: "error",
+      });
     },
   });
 
@@ -93,11 +174,22 @@ export default function FamilyMembersPage() {
     setOccupation("");
     setBiography("");
     setIsLiving(true);
+    setRelationType("NONE");
+    setRelatedPersonId("");
+    setFormError(null);
   };
 
   const handleCreatePerson = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim()) return;
+    setFormError(null);
+    if (!firstName.trim()) {
+      setFormError("First name is required.");
+      return;
+    }
+    if (relationType !== "NONE" && !relatedPersonId) {
+      setFormError("Please select the related family member.");
+      return;
+    }
 
     createPersonMutation.mutate({
       family: familyId,
@@ -246,7 +338,16 @@ export default function FamilyMembersPage() {
         personId={selectedPersonId}
         onClose={() => setSelectedPersonId(null)}
         onSelectPerson={(id) => setSelectedPersonId(id)}
-        onQuickAdd={() => {}}
+        onQuickAdd={handleQuickAdd}
+      />
+
+      {/* Quick Add Modal */}
+      <QuickAddModal
+        isOpen={quickAddModalOpen}
+        onClose={() => setQuickAddModalOpen(false)}
+        familyId={familyId}
+        targetPerson={quickAddTarget}
+        relationType={quickAddType}
       />
 
       {/* Add Person Modal */}
@@ -257,9 +358,15 @@ export default function FamilyMembersPage() {
         description="Record a new ancestor or living relative in this lineage."
       >
         <form onSubmit={handleCreatePerson} className="space-y-4">
+          {formError && (
+            <div className="p-2.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs font-medium">
+              {formError}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">First Name</label>
+              <label className="text-xs font-medium text-muted-foreground">First Name *</label>
               <Input required placeholder="First" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             </div>
             <div className="space-y-1">
@@ -271,6 +378,50 @@ export default function FamilyMembersPage() {
               <Input placeholder="Last" value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </div>
           </div>
+
+          {/* Genealogical Tree Connection */}
+          {people.length > 0 && (
+            <div className="space-y-2 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-primary">
+                  Connect to Family Tree (पारिवारिक सम्बन्ध जोड्नुहोस्)
+                </label>
+                <span className="text-[11px] text-muted-foreground">ऐच्छिक (Optional)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] text-muted-foreground block mb-1">सम्बन्ध प्रकार (Type)</label>
+                  <select
+                    value={relationType}
+                    onChange={(e) => setRelationType(e.target.value as any)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none"
+                  >
+                    <option value="NONE">Standalone / New Root (नयाँ पुर्खा)</option>
+                    <option value="CHILD_OF">Child of (को सन्तान)</option>
+                    <option value="SPOUSE_OF">Spouse of (को जीवनसाथी)</option>
+                    <option value="PARENT_OF">Parent of (को बुबा/आमा)</option>
+                  </select>
+                </div>
+                {relationType !== "NONE" && (
+                  <div>
+                    <label className="text-[11px] text-muted-foreground block mb-1">सदस्य छान्नुहोस् (Relative)</label>
+                    <select
+                      value={relatedPersonId}
+                      onChange={(e) => setRelatedPersonId(e.target.value)}
+                      className="h-9 w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground outline-none font-medium"
+                    >
+                      <option value="">-- सदस्य छान्नुहोस् --</option>
+                      {people.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.full_name} ({p.gender === "FEMALE" ? "Female" : "Male"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
