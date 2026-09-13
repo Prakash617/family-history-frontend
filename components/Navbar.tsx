@@ -38,6 +38,13 @@ export default function Navbar({ onToggleSidebar }: { onToggleSidebar?: () => vo
         </div>
 
         <nav className="flex items-center gap-3">
+          <Link href="/tree">
+            <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-primary font-semibold">
+              <TreePine className="h-4 w-4" />
+              <span>वंशावली (Tree)</span>
+            </Button>
+          </Link>
+
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <Link href="/dashboard">

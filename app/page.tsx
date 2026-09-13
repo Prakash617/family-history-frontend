@@ -31,10 +31,10 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            <Link href="/login">
-              <Button size="lg" className="gap-2 shadow-md">
-                Launch Application
-                <ArrowRight className="h-4 w-4" />
+            <Link href="/tree">
+              <Button size="lg" className="gap-2 shadow-md bg-emerald-700 hover:bg-emerald-800 text-white">
+                <TreePine className="h-5 w-5" />
+                थापा परिवार वंशावली हेर्नुहोस् (Open Tree)
               </Button>
             </Link>
             <Link href="/dashboard">
