@@ -23,7 +23,7 @@ export interface Family {
   members_count: number;
   photos_count?: number;
   stories_count?: number;
-  current_user_role?: "OWNER" | "ADMIN" | "EDITOR" | "VIEWER" | null;
+  current_user_role?: "OWNER" | "ADMIN" | "EDITOR" | "VIEWER" | "PENDING" | null;
   created_at: string;
   updated_at: string;
 }
