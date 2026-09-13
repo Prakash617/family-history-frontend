@@ -32,6 +32,10 @@ export default function FamilySettingsPage() {
   const [description, setDescription] = useState("");
   const [privacy, setPrivacy] = useState<"PUBLIC" | "PRIVATE" | "INVITE_ONLY">("PRIVATE");
 
+  // Delete family state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [confirmFamilyName, setConfirmFamilyName] = useState("");
+
   const { data: family, isLoading } = useQuery<Family>({
     queryKey: ["family", familyId],
     queryFn: () => apiRequest<Family>(`/families/${familyId}/`),
@@ -60,6 +64,30 @@ export default function FamilySettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["family", familyId] });
       queryClient.invalidateQueries({ queryKey: ["families"] });
       toast({ title: "Family Updated", description: "Settings saved successfully." });
+    },
+  });
+
+  const deleteFamilyMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(`/families/${familyId}/`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["families"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast({
+        title: "Family Deleted (परिवार हटाइयो)",
+        description: `Successfully deleted "${family?.name}".`,
+        type: "info",
+      });
+      router.push("/dashboard");
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Delete Failed",
+        description: err?.message || "Could not delete family tree.",
+        type: "error",
+      });
     },
   });
 
@@ -195,8 +223,87 @@ export default function FamilySettingsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Danger Zone */}
+          <Card className="border-destructive/30 bg-destructive/5 mt-6">
+            <CardHeader>
+              <CardTitle className="text-lg text-destructive flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Danger Zone (जोखिमपूर्ण क्षेत्र)
+              </CardTitle>
+              <CardDescription>
+                Permanently delete this family tree and all associated genealogy data.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Once deleted, all member profiles, lineage connections, stories, media, and timeline events will be permanently removed. This action cannot be reversed.
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteConfirmOpen(true)}
+                className="gap-2 text-xs"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Family Tree (यो परिवार पूर्ण रूपमा हटाउनुहोस्)
+              </Button>
+            </CardContent>
+          </Card>
         </main>
       </div>
+
+      {/* Delete Family Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmOpen}
+        onClose={() => {
+          setDeleteConfirmOpen(false);
+          setConfirmFamilyName("");
+        }}
+        title="Delete Family Tree (परिवार हटाउने पुष्टि)"
+        description={`Are you sure you want to delete "${family?.name}"?`}
+      >
+        <div className="space-y-4">
+          <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs space-y-1">
+            <p className="font-semibold">⚠️ Warning: Irreversible Action</p>
+            <p>
+              Deleting this family tree will immediately remove all member nodes, generational links, marriages, stories, and uploaded media associated with it.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              Please type <span className="font-bold text-foreground">{family?.name}</span> to confirm:
+            </label>
+            <Input
+              value={confirmFamilyName}
+              onChange={(e) => setConfirmFamilyName(e.target.value)}
+              placeholder={family?.name}
+              className="text-xs"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setConfirmFamilyName("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={confirmFamilyName !== family?.name || deleteFamilyMutation.isPending}
+              onClick={() => deleteFamilyMutation.mutate()}
+            >
+              {deleteFamilyMutation.isPending ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Invite Member Modal */}
       <Modal

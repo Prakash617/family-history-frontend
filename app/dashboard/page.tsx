@@ -15,6 +15,9 @@ import {
   Activity,
   HeartHandshake,
   UserPlus,
+  Trash2,
+  Pencil,
+  Settings,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
@@ -38,6 +41,71 @@ export default function DashboardPage() {
   const [newFamilyName, setNewFamilyName] = useState("");
   const [newFamilyDesc, setNewFamilyDesc] = useState("");
   const [newFamilyPrivacy, setNewFamilyPrivacy] = useState<"PUBLIC" | "PRIVATE" | "INVITE_ONLY">("PRIVATE");
+
+  // Edit & Delete Family Modal State
+  const [familyToEdit, setFamilyToEdit] = useState<Family | null>(null);
+  const [editFamilyName, setEditFamilyName] = useState("");
+  const [editFamilyDesc, setEditFamilyDesc] = useState("");
+  const [editFamilyPrivacy, setEditFamilyPrivacy] = useState<"PUBLIC" | "PRIVATE" | "INVITE_ONLY">("PRIVATE");
+  const [familyToDelete, setFamilyToDelete] = useState<Family | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+
+  const handleOpenEditFamily = (fam: Family) => {
+    setFamilyToEdit(fam);
+    setEditFamilyName(fam.name);
+    setEditFamilyDesc(fam.description || "");
+    setEditFamilyPrivacy((fam.privacy as any) || "PRIVATE");
+  };
+
+  const updateFamilyMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiRequest(`/families/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["families"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast({
+        title: "Family Updated (विवरण सम्पादन भयो)",
+        description: "Family tree details updated successfully.",
+        type: "success",
+      });
+      setFamilyToEdit(null);
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Update Failed",
+        description: err?.message || "Could not update family tree.",
+        type: "error",
+      });
+    },
+  });
+
+  const deleteFamilyMutation = useMutation({
+    mutationFn: (familyId: string) =>
+      apiRequest(`/families/${familyId}/`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["families"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast({
+        title: "Family Deleted (परिवार हटाइयो)",
+        description: `Successfully deleted family tree "${familyToDelete?.name}".`,
+        type: "info",
+      });
+      setFamilyToDelete(null);
+      setDeleteConfirmInput("");
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Delete Failed",
+        description: err?.message || "Could not delete family tree.",
+        type: "error",
+      });
+    },
+  });
 
   // Add Member Modal State
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
@@ -368,8 +436,33 @@ export default function DashboardPage() {
                   <Card key={fam.id} className="border-border hover:shadow-md transition-shadow flex flex-col justify-between">
                     <CardHeader className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Badge variant="outline">{fam.privacy}</Badge>
-                        <span className="text-xs text-muted-foreground">{fam.members_count} members</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{fam.privacy}</Badge>
+                          <span className="text-xs text-muted-foreground">{fam.members_count} members</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                            title="Edit Family (सम्पादन)"
+                            onClick={() => handleOpenEditFamily(fam)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            title="Delete Family Tree (हटाउनुहोस्)"
+                            onClick={() => {
+                              setFamilyToDelete(fam);
+                              setDeleteConfirmInput("");
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                       <CardTitle className="text-xl font-serif">{fam.name}</CardTitle>
                       <CardDescription className="line-clamp-2">{fam.description || "No description provided."}</CardDescription>
@@ -398,6 +491,11 @@ export default function DashboardPage() {
                         <Link href={`/family/${fam.id}/members`}>
                           <Button size="sm" variant="ghost" className="text-xs">
                             Members
+                          </Button>
+                        </Link>
+                        <Link href={`/family/${fam.id}/settings`}>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" title="Family Settings">
+                            <Settings className="h-3.5 w-3.5" />
                           </Button>
                         </Link>
                       </div>
@@ -672,6 +770,147 @@ export default function DashboardPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Edit Family Modal */}
+      <Modal
+        isOpen={!!familyToEdit}
+        onClose={() => setFamilyToEdit(null)}
+        title="Edit Family Lineage (परिवार सम्पादन गर्नुहोस्)"
+        description={`Modify details and privacy settings for "${familyToEdit?.name}".`}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!familyToEdit || !editFamilyName.trim()) return;
+            updateFamilyMutation.mutate({
+              id: familyToEdit.id,
+              data: {
+                name: editFamilyName,
+                description: editFamilyDesc,
+                privacy: editFamilyPrivacy,
+              },
+            });
+          }}
+          className="space-y-4"
+        >
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Family Name * (परिवारको नाम)</label>
+            <Input
+              required
+              value={editFamilyName}
+              onChange={(e) => setEditFamilyName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Visibility & Privacy (गोपनीयता)</label>
+            <select
+              value={editFamilyPrivacy}
+              onChange={(e) => setEditFamilyPrivacy(e.target.value as any)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs sm:text-sm text-foreground outline-none font-medium"
+            >
+              <option value="PRIVATE">🔒 Private (गोप्य) — Only invited members can view or edit</option>
+              <option value="PUBLIC">🌐 Public (सार्वजनिक) — Anyone with the link can view historical lineage</option>
+              <option value="INVITE_ONLY">✉️ Invite Only (निमन्त्रणा मात्र) — Strictly restricted to invited members</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Description & History (विवरण)</label>
+            <textarea
+              rows={3}
+              value={editFamilyDesc}
+              onChange={(e) => setEditFamilyDesc(e.target.value)}
+              className="w-full rounded-md border border-input bg-background p-2.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div className="flex justify-between items-center pt-2">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="gap-1 text-xs"
+              onClick={() => {
+                const target = familyToEdit;
+                setFamilyToEdit(null);
+                setFamilyToDelete(target);
+                setDeleteConfirmInput("");
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete Family...
+            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setFamilyToEdit(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateFamilyMutation.isPending}>
+                {updateFamilyMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Family Confirmation Modal */}
+      <Modal
+        isOpen={!!familyToDelete}
+        onClose={() => {
+          setFamilyToDelete(null);
+          setDeleteConfirmInput("");
+        }}
+        title="Delete Family Tree (परिवार हटाउने पुष्टि)"
+        description={`Are you sure you want to permanently delete "${familyToDelete?.name}"?`}
+      >
+        <div className="space-y-4">
+          <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs space-y-1">
+            <p className="font-semibold">⚠️ Irreversible Action (पुनः प्राप्त गर्न सकिँदैन)</p>
+            <p>
+              Deleting this family tree will immediately remove the lineage and all {familyToDelete?.members_count || 0} associated member profiles, family relationships, stories, and media.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              Please type <span className="font-bold text-foreground">{familyToDelete?.name}</span> to confirm:
+            </label>
+            <Input
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              placeholder={familyToDelete?.name}
+              className="text-xs"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFamilyToDelete(null);
+                setDeleteConfirmInput("");
+              }}
+            >
+              रद्द गर्नुहोस् (Cancel)
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                deleteConfirmInput.trim() !== familyToDelete?.name?.trim() ||
+                deleteFamilyMutation.isPending
+              }
+              onClick={() => {
+                if (familyToDelete) {
+                  deleteFamilyMutation.mutate(familyToDelete.id);
+                }
+              }}
+            >
+              {deleteFamilyMutation.isPending ? "हटाउँदै..." : "हो, पूर्ण रूपमा हटाउनुहोस् (Delete Permanently)"}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -33,6 +33,7 @@ export default function Sidebar({ familyId, isOpen, onClose }: SidebarProps) {
         { label: "Historical Stories", href: `/family/${familyId}/stories`, icon: BookOpen },
         { label: "Photos & Media", href: `/family/${familyId}/media`, icon: ImageIcon },
         { label: "Timeline Events", href: `/family/${familyId}/events`, icon: Calendar },
+        { label: "Family Settings", href: `/family/${familyId}/settings`, icon: Settings },
       ]
     : [
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
