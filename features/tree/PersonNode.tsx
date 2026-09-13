@@ -2,109 +2,80 @@
 
 import React, { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { User, Plus, MapPin, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const PersonNode = memo(({ data, selected }: NodeProps) => {
   const nodeData = data as any;
-  const isLiving = nodeData.isLiving;
-  const gender = nodeData.gender;
+  const isFemale = nodeData.gender === "FEMALE";
+  const gen = nodeData.generation ?? 0;
 
-  const genderColor =
-    gender === "MALE"
-      ? "border-sky-300 dark:border-sky-800 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-      : gender === "FEMALE"
-      ? "border-rose-300 dark:border-rose-800 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-      : "border-border bg-secondary text-muted-foreground";
+  // Authentic color scheme inspired by traditional Nepali Vamshavali posters:
+  // - Female/Spouses: Pink
+  // - Gen 1 (Root): Lavender/Purple
+  // - Gen 2 & Som Bahadur branch: Sky Blue
+  // - Gen 3 & Gen 5: Mint Green
+  // - Gen 4: Light Amber
+  // - Gen 6: Soft Violet
+  let cardColor = "bg-[#f0fdf4] border-[#4ade80] text-[#14532d] shadow-sm"; // default green
+
+  if (isFemale) {
+    cardColor = "bg-[#fdf2f8] border-[#f472b6] text-[#9d174d] shadow-sm"; // Pink for female/spouses
+  } else if (gen === 0) {
+    cardColor = "bg-[#faf5ff] border-[#c084fc] text-[#6b21a8] shadow-sm"; // Lavender for Bagh Singh
+  } else if (gen === 1 || nodeData.fullName?.includes("सोम बहादुर")) {
+    cardColor = "bg-[#f0f9ff] border-[#38bdf8] text-[#0369a1] shadow-sm"; // Sky blue for Hasta / Som Bahadur
+  } else if (gen === 2 || gen === 4) {
+    cardColor = "bg-[#f0fdf4] border-[#4ade80] text-[#14532d] shadow-sm"; // Mint green for Gen 3 & 5
+  } else if (gen === 3) {
+    cardColor = "bg-[#fefce8] border-[#facc15] text-[#854d0e] shadow-sm"; // Light yellow for Gen 4
+  } else if (gen >= 5) {
+    cardColor = "bg-[#faf5ff] border-[#c084fc] text-[#6b21a8] shadow-sm"; // Violet for Gen 6
+  }
 
   return (
     <div
       className={cn(
-        "relative w-[260px] rounded-xl border bg-card p-3 shadow-sm transition-all duration-150 select-none cursor-pointer",
-        selected ? "border-primary ring-2 ring-primary/30 shadow-md" : "border-border hover:border-primary/50 hover:shadow-md"
+        "relative w-[190px] h-[58px] rounded-lg border-2 flex flex-col items-center justify-center px-2 py-1 text-center select-none cursor-pointer transition-all duration-150 font-sans",
+        cardColor,
+        selected ? "ring-4 ring-primary/40 scale-105 shadow-lg !border-primary" : "hover:scale-105 hover:shadow-md"
       )}
     >
-      {/* Top Handle for Parent-to-Child links */}
+      {/* Top Handle for Parent-Child connection */}
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-background"
+        className="!w-2 !h-2 !bg-[#475569] !border-none"
       />
 
-      {/* Left/Right Handles for Spouses */}
+      {/* Left and Right Handles for Spouses */}
       <Handle
         type="source"
         position={Position.Left}
         id="spouse-left"
-        className="!w-2 !h-2 !bg-pink-500 !border-background"
+        className="!w-1.5 !h-1.5 !bg-[#d97706] !border-none"
       />
       <Handle
         type="target"
         position={Position.Right}
         id="spouse-right"
-        className="!w-2 !h-2 !bg-pink-500 !border-background"
+        className="!w-1.5 !h-1.5 !bg-[#d97706] !border-none"
       />
 
-      <div className="flex items-start gap-3">
-        {/* Profile Avatar */}
-        <div className="relative shrink-0">
-          {nodeData.photoUrl ? (
-            <img
-              src={nodeData.photoUrl}
-              alt={nodeData.fullName}
-              className="h-12 w-12 rounded-full object-cover border border-border"
-            />
-          ) : (
-            <div
-              className={cn(
-                "h-12 w-12 rounded-full flex items-center justify-center font-semibold text-sm border",
-                genderColor
-              )}
-            >
-              {nodeData.firstName?.[0]}
-              {nodeData.lastName?.[0]}
-            </div>
-          )}
+      {/* Main Bold Legible Nepali Name */}
+      <span className="text-[15px] sm:text-[16px] font-bold tracking-tight truncate w-full px-1">
+        {nodeData.fullName}
+      </span>
 
-          {/* Living indicator dot */}
-          <span
-            className={cn(
-              "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card",
-              isLiving ? "bg-emerald-500" : "bg-neutral-400"
-            )}
-            title={isLiving ? "Living" : "Deceased"}
-          />
-        </div>
-
-        {/* Info Column */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1">
-            <h4 className="font-semibold text-sm text-foreground truncate">{nodeData.fullName}</h4>
-          </div>
-
-          <p className="text-xs font-medium text-primary mt-0.5">{nodeData.lifespan}</p>
-
-          {nodeData.birthPlace && (
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1 truncate">
-              <MapPin className="h-3 w-3 shrink-0" />
-              <span className="truncate">{nodeData.birthPlace}</span>
-            </div>
-          )}
-
-          {nodeData.occupation && (
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5 truncate">
-              <Briefcase className="h-3 w-3 shrink-0" />
-              <span className="truncate">{nodeData.occupation}</span>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Generation Tag */}
+      <span className="text-[10px] font-medium opacity-75 mt-0.5">
+        {nodeData.birthDisplay || `पुस्ता ${gen + 1}`}
+      </span>
 
       {/* Bottom Handle for Children */}
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-background"
+        className="!w-2 !h-2 !bg-[#475569] !border-none"
       />
     </div>
   );

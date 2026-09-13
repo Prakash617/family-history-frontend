@@ -21,10 +21,10 @@ export function layoutFamilyTree(nodes: Node[], edges: Edge[]) {
     generationGroups[gen].push(node);
   });
 
-  const nodeWidth = 260;
-  const standardGap = 60;
-  const spouseGap = 35;
-  const verticalGap = 180;
+  const nodeWidth = 190;
+  const standardGap = 50;
+  const spouseGap = 28;
+  const verticalGap = 140;
 
   const positionedNodes: Node[] = [];
 
