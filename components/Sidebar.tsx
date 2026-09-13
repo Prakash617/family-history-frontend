@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   TreePine,
@@ -13,7 +14,10 @@ import {
   Settings,
   Mail,
   X,
+  ChevronDown,
 } from "lucide-react";
+import { apiRequest } from "@/lib/api";
+import { Family } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -24,6 +28,24 @@ interface SidebarProps {
 
 export default function Sidebar({ familyId, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const { data: familiesData } = useQuery<{ results: Family[] }>({
+    queryKey: ["families"],
+    queryFn: () => apiRequest<{ results: Family[] }>("/families/"),
+  });
+
+  const families = familiesData?.results || [];
+  const currentFamily = families.find((f) => f.id === familyId);
+
+  const handleFamilyChange = (newFamId: string) => {
+    if (!newFamId || newFamId === familyId) return;
+    // Keep current section (tree, members, media, events, stories, settings)
+    const segments = pathname.split("/");
+    const section = segments[3] || "tree";
+    router.push(`/family/${newFamId}/${section}`);
+    onClose();
+  };
 
   const links = familyId
     ? [
@@ -64,6 +86,45 @@ export default function Sidebar({ familyId, isOpen, onClose }: SidebarProps) {
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Family Switcher Selector (when inside a family workspace) */}
+        {familyId && families.length > 0 && (
+          <div className="mb-4 pb-3 border-b border-border space-y-1.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Active Lineage (सक्रिय परिवार)
+              </span>
+              <span className="text-[10px] text-primary font-semibold">
+                {families.length} {families.length === 1 ? "Tree" : "Trees"}
+              </span>
+            </div>
+
+            {families.length > 1 ? (
+              <div className="relative">
+                <select
+                  value={familyId}
+                  onChange={(e) => handleFamilyChange(e.target.value)}
+                  className="w-full h-9 rounded-lg border border-input bg-background/80 px-2.5 py-1.5 text-xs font-semibold text-foreground outline-none cursor-pointer hover:border-primary focus:ring-1 focus:ring-primary truncate pr-7"
+                  title="Switch between your family trees"
+                >
+                  {families.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      🌳 {f.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 border border-border/60">
+                <TreePine className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-xs font-semibold text-foreground truncate">
+                  {currentFamily?.name || "Family Lineage"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <nav className="space-y-1.5">
           {links.map((link) => {
