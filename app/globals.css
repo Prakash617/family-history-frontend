@@ -76,3 +76,67 @@ body {
 .react-flow__attribution {
   display: none !important;
 }
+
+/* Print Styles: isolates only the genealogical chart when printing or saving as PDF */
+@media print {
+  /* Hide standard navigation, sidebar, dialogs, and controls */
+  nav,
+  aside,
+  header,
+  .no-print,
+  [role="dialog"],
+  button,
+  .sticky {
+    display: none !important;
+  }
+
+  body,
+  html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  /* When printing the chart, hide all surrounding UI */
+  body.printing-chart * {
+    visibility: hidden;
+  }
+
+  body.printing-chart #printable-vamshavali-chart,
+  body.printing-chart #printable-vamshavali-chart * {
+    visibility: visible !important;
+  }
+
+  body.printing-chart #printable-vamshavali-chart {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 8mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    transform: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure background tints and borders print properly */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: landscape;
+    margin: 8mm;
+  }
+}
+

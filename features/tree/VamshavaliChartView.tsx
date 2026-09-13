@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { ZoomIn, ZoomOut, RotateCcw, Printer, Users, Heart } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, Printer, Users, Hand, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TreeData, Person, Family } from "@/types";
 
@@ -296,12 +296,9 @@ function buildPosterForest(treeData?: TreeData | null, people?: Person[]): Poste
     if (!hasParents) {
       const spouseId = spouseMap.get(pid);
       const spouseHasParents = spouseId ? (childToParents.get(spouseId)?.size || 0) > 0 : false;
-      // If this person has no parents, but their spouse has parents in the tree,
-      // they are an in-law married to a child in the tree, so display beside spouse.
       if (spouseHasParents) {
         continue;
       }
-      // If neither has parents, ensure only one spouse is listed as root
       if (spouseId && spouseId < pid && roots.includes(spouseId)) {
         continue;
       }
@@ -371,31 +368,73 @@ export default function VamshavaliChartView({
   onSelectPersonById,
 }: VamshavaliChartViewProps) {
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ mouseX: 0, mouseY: 0, panX: 0, panY: 0, moved: false });
   const containerRef = useRef<HTMLDivElement>(null);
 
   const forest = useMemo(() => buildPosterForest(treeData, people), [treeData, people]);
 
-  // Center horizontally on initial mount or when data loads
+  // Handle native mouse wheel zoom with non-passive listener to avoid outer page scrolling
   useEffect(() => {
-    if (containerRef.current) {
-      const el = containerRef.current;
-      el.scrollLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      // Zoom smoothly
+      const factor = e.deltaY < 0 ? 1.09 : 0.91;
+      setZoom((prev) => Math.min(2.5, Math.max(0.25, Number((prev * factor).toFixed(3)))));
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only drag with left click (button 0)
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest(".no-drag")) {
+      return;
     }
-  }, [forest.length]);
+    setIsDragging(true);
+    dragStart.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      panX: pan.x,
+      panY: pan.y,
+      moved: false,
+    };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStart.current.mouseX;
+    const dy = e.clientY - dragStart.current.mouseY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      dragStart.current.moved = true;
+    }
+    setPan({
+      x: dragStart.current.panX + dx,
+      y: dragStart.current.panY + dy,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
 
   const handleReset = () => {
     setZoom(1);
-    if (containerRef.current) {
-      const el = containerRef.current;
-      el.scrollTo({
-        left: Math.max(0, (el.scrollWidth - el.clientWidth) / 2),
-        top: 0,
-        behavior: "smooth",
-      });
-    }
+    setPan({ x: 0, y: 0 });
   };
 
   const handleSelectPerson = (p: PosterPerson) => {
+    // If the user was panning/dragging the chart, do not trigger person selection modal
+    if (dragStart.current.moved) return;
     if (onSelectPersonById) {
       onSelectPersonById(p.id);
     }
@@ -404,28 +443,48 @@ export default function VamshavaliChartView({
     }
   };
 
-  const familyTitle = family?.name || treeData?.meta?.rootPersonName ? `${family?.name || "परिवार"} वंशावली` : "कुल वंशावली तालिका";
+  const handlePrint = () => {
+    document.body.classList.add("printing-chart");
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove("printing-chart");
+    }, 1000);
+  };
+
+  const familyTitle =
+    family?.name || treeData?.meta?.rootPersonName
+      ? `${family?.name || "परिवार"} वंशावली`
+      : "कुल वंशावली तालिका";
 
   return (
     <div
       ref={containerRef}
-      className="w-full overflow-auto p-4 sm:p-8 bg-[#faf8f5] dark:bg-[#141210] min-h-[85vh] flex flex-col items-center scroll-smooth"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      className={`w-full overflow-hidden bg-[#faf8f5] dark:bg-[#141210] h-[calc(100vh-115px)] relative flex flex-col items-center select-none ${
+        isDragging ? "cursor-grabbing" : "cursor-grab"
+      }`}
     >
-      {/* Viewport controls */}
-      <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 bg-card/95 backdrop-blur-md p-2 rounded-xl border border-border shadow-md mb-6">
+      {/* Viewport controls (Excluded from print) */}
+      <div className="no-print absolute top-3 z-30 flex flex-wrap items-center gap-2 bg-card/95 backdrop-blur-md p-2 rounded-xl border border-border shadow-md">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setZoom((z) => Math.min(1.5, z + 0.1))}
+          onClick={() => setZoom((z) => Math.min(2.5, Number((z + 0.15).toFixed(2))))}
           className="h-8 gap-1 text-xs"
         >
           <ZoomIn className="h-4 w-4" />
           Zoom In
         </Button>
+        <span className="text-xs font-semibold px-1 text-muted-foreground tabular-nums">
+          {Math.round(zoom * 100)}%
+        </span>
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}
+          onClick={() => setZoom((z) => Math.max(0.25, Number((z - 0.15).toFixed(2))))}
           className="h-8 gap-1 text-xs"
         >
           <ZoomOut className="h-4 w-4" />
@@ -436,7 +495,7 @@ export default function VamshavaliChartView({
           size="sm"
           onClick={handleReset}
           className="h-8 gap-1.5 text-xs font-semibold bg-secondary/80 hover:bg-secondary text-foreground border-border"
-          title="Reset zoom and scroll to initial center position"
+          title="Reset zoom and position to initial center"
         >
           <RotateCcw className="h-3.5 w-3.5 text-primary" />
           <span>Reset Position (रिसेट)</span>
@@ -444,57 +503,71 @@ export default function VamshavaliChartView({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => window.print()}
+          onClick={handlePrint}
           className="h-8 gap-1 text-xs"
         >
           <Printer className="h-4 w-4" />
           Print / PDF
         </Button>
+
+        <div className="hidden sm:flex items-center gap-1.5 pl-2 border-l border-border text-[11px] text-muted-foreground font-medium">
+          <Move className="h-3 w-3 text-primary" />
+          <span>Drag to pan • Mouse wheel to zoom</span>
+        </div>
       </div>
 
-      {/* Main Chart Container */}
+      {/* Pannable & Zoomable Chart Area */}
       <div
-        style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
-        className="transition-transform duration-150 flex flex-col items-center w-full min-w-max pb-24"
+        className="w-full h-full flex items-center justify-center pointer-events-none"
       >
-        {/* Poster Header */}
-        <div className="text-center mb-8 space-y-1">
-          <h1 className="text-2xl sm:text-4xl font-extrabold text-[#1e293b] dark:text-[#f1f5f9] tracking-wide font-serif">
-            {familyTitle}
-          </h1>
-          <div className="flex items-center justify-center gap-2 text-primary pt-1">
-            <div className="h-0.5 w-16 bg-primary/40 rounded-full" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              पुर्ख्यौली अभिलेख • कुल वंशावली
-            </span>
-            <div className="h-0.5 w-16 bg-primary/40 rounded-full" />
+        <div
+          id="printable-vamshavali-chart"
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "center center",
+            transition: isDragging ? "none" : "transform 0.08s ease-out",
+          }}
+          className="pointer-events-auto flex flex-col items-center min-w-max p-12 sm:p-24"
+        >
+          {/* Poster Header */}
+          <div className="text-center mb-10 space-y-1 select-text">
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-[#1e293b] dark:text-[#f1f5f9] tracking-wide font-serif">
+              {familyTitle}
+            </h1>
+            <div className="flex items-center justify-center gap-2 text-primary pt-1">
+              <div className="h-0.5 w-16 bg-primary/40 rounded-full" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                पुर्ख्यौली अभिलेख • कुल वंशावली तालिका
+              </span>
+              <div className="h-0.5 w-16 bg-primary/40 rounded-full" />
+            </div>
+            {family?.description && (
+              <p className="text-xs text-muted-foreground max-w-xl mx-auto pt-1 line-clamp-2">
+                {family.description}
+              </p>
+            )}
           </div>
-          {family?.description && (
-            <p className="text-xs text-muted-foreground max-w-xl mx-auto pt-1 line-clamp-2">
-              {family.description}
-            </p>
+
+          {/* Dynamic Generational Tree Hierarchy */}
+          {forest.length === 0 ? (
+            <div className="py-16 text-center text-sm text-muted-foreground space-y-2">
+              <Users className="h-8 w-8 mx-auto text-muted-foreground" />
+              <p>No family members found to display on the poster chart.</p>
+              <p className="text-xs">Add family members to see the traditional lineage poster generated automatically.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-14 w-full">
+              {forest.map((rootNode) => (
+                <PosterBranch
+                  key={rootNode.person.id}
+                  node={rootNode}
+                  generation={0}
+                  onSelectPerson={handleSelectPerson}
+                />
+              ))}
+            </div>
           )}
         </div>
-
-        {/* Dynamic Generational Tree Hierarchy */}
-        {forest.length === 0 ? (
-          <div className="py-16 text-center text-sm text-muted-foreground space-y-2">
-            <Users className="h-8 w-8 mx-auto text-muted-foreground" />
-            <p>No family members found to display on the poster chart.</p>
-            <p className="text-xs">Add family members to see the traditional lineage poster generated automatically.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-12 w-full">
-            {forest.map((rootNode) => (
-              <PosterBranch
-                key={rootNode.person.id}
-                node={rootNode}
-                generation={0}
-                onSelectPerson={handleSelectPerson}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
