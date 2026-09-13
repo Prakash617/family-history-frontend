@@ -132,6 +132,7 @@ export interface MediaItem {
   family: string;
   uploader: User;
   person?: string | null;
+  person_detail?: { id: string; full_name: string } | null;
   title: string;
   description: string;
   file: string;
