@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ZoomIn, ZoomOut, RotateCcw, Printer, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -18,6 +18,27 @@ interface VamshavaliChartViewProps {
 
 export default function VamshavaliChartView({ onSelectPersonByName }: VamshavaliChartViewProps) {
   const [zoom, setZoom] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Center horizontally on initial mount
+  useEffect(() => {
+    if (containerRef.current) {
+      const el = containerRef.current;
+      el.scrollLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
+    }
+  }, []);
+
+  const handleReset = () => {
+    setZoom(1);
+    if (containerRef.current) {
+      const el = containerRef.current;
+      el.scrollTo({
+        left: Math.max(0, (el.scrollWidth - el.clientWidth) / 2),
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  };
 
   const handleClick = (name: string) => {
     if (onSelectPersonByName) {
@@ -53,9 +74,12 @@ export default function VamshavaliChartView({ onSelectPersonByName }: Vamshavali
   );
 
   return (
-    <div className="w-full overflow-auto p-4 sm:p-8 bg-[#faf8f5] dark:bg-[#141210] min-h-[85vh] flex flex-col items-center">
+    <div
+      ref={containerRef}
+      className="w-full overflow-auto p-4 sm:p-8 bg-[#faf8f5] dark:bg-[#141210] min-h-[85vh] flex flex-col items-center scroll-smooth"
+    >
       {/* Viewport controls */}
-      <div className="sticky top-2 z-20 flex items-center gap-2 bg-card/90 backdrop-blur-md p-2 rounded-xl border border-border shadow-sm mb-6">
+      <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 bg-card/95 backdrop-blur-md p-2 rounded-xl border border-border shadow-md mb-6">
         <Button variant="ghost" size="sm" onClick={() => setZoom((z) => Math.min(1.5, z + 0.1))} className="h-8 gap-1 text-xs">
           <ZoomIn className="h-4 w-4" />
           Zoom In
@@ -64,9 +88,15 @@ export default function VamshavaliChartView({ onSelectPersonByName }: Vamshavali
           <ZoomOut className="h-4 w-4" />
           Zoom Out
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => setZoom(1)} className="h-8 gap-1 text-xs">
-          <RotateCcw className="h-4 w-4" />
-          Reset (100%)
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReset}
+          className="h-8 gap-1.5 text-xs font-semibold bg-secondary/80 hover:bg-secondary text-foreground border-border"
+          title="Reset zoom and scroll to initial center position"
+        >
+          <RotateCcw className="h-3.5 w-3.5 text-primary" />
+          <span>Reset Position (रिसेट)</span>
         </Button>
         <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 gap-1 text-xs">
           <Printer className="h-4 w-4" />

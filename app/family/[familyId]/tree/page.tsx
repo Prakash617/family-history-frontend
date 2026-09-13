@@ -95,6 +95,14 @@ function TreeCanvas({
     fitView({ padding: 0.15, duration: 600 });
   }, [fitView]);
 
+  const handleReset = useCallback(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+    setTimeout(() => {
+      fitView({ padding: 0.15, duration: 600 });
+    }, 50);
+  }, [initialNodes, initialEdges, fitView, setNodes, setEdges]);
+
   const handleToggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen();
@@ -119,6 +127,7 @@ function TreeCanvas({
         onZoomOut={() => zoomOut({ duration: 300 })}
         onFitView={() => fitView({ padding: 0.15, duration: 500 })}
         onRecenter={handleRecenter}
+        onReset={handleReset}
         onSearchSelect={handleSearchSelect}
         people={searchPeopleList}
         depth={depth}

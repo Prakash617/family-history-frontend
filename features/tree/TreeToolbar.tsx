@@ -8,7 +8,7 @@ import {
   Minimize,
   Focus,
   Search,
-  Filter,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +17,7 @@ interface TreeToolbarProps {
   onZoomOut: () => void;
   onFitView: () => void;
   onRecenter: () => void;
+  onReset: () => void;
   onSearchSelect: (personId: string) => void;
   people: Array<{ id: string; fullName: string }>;
   depth: number;
@@ -30,6 +31,7 @@ export default function TreeToolbar({
   onZoomOut,
   onFitView,
   onRecenter,
+  onReset,
   onSearchSelect,
   people,
   depth,
@@ -107,6 +109,16 @@ export default function TreeToolbar({
         </Button>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onFitView} title="Fit View">
           <Focus className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onReset}
+          className="h-8 gap-1 text-xs px-2.5 font-medium border-border hover:bg-muted"
+          title="Reset chart to initial view and position"
+        >
+          <RotateCcw className="h-3.5 w-3.5 text-primary" />
+          <span>Reset (रिसेट)</span>
         </Button>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleFullscreen} title="Toggle Fullscreen">
           {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
