@@ -20,6 +20,7 @@ import {
   Settings,
   Upload,
   User as UserIcon,
+  Clock,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
@@ -113,6 +114,29 @@ export default function DashboardPage() {
       toast({
         title: "Delete Failed",
         description: err?.message || "Could not delete family tree.",
+        type: "error",
+      });
+    },
+  });
+
+  const requestAccessMutation = useMutation({
+    mutationFn: (familyId: string) =>
+      apiRequest(`/families/${familyId}/request_access/`, {
+        method: "POST",
+        body: JSON.stringify({ role: "EDITOR" }),
+      }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["families"] });
+      toast({
+        title: "Access Requested (अनुरोध पठाइयो)",
+        description: res.detail || "Your request for edit permission has been submitted to the family owner.",
+        type: "info",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Request Failed",
+        description: err?.message || "Could not submit request.",
         type: "error",
       });
     },
@@ -374,11 +398,14 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              {families.length > 0 && (
+              {families.some((f) => f.current_user_role === "OWNER" || f.current_user_role === "ADMIN" || f.current_user_role === "EDITOR") && (
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setSelectedFamilyIdForMember(primaryFamily?.id || families[0]?.id);
+                    const editable = families.find(
+                      (f) => f.current_user_role === "OWNER" || f.current_user_role === "ADMIN" || f.current_user_role === "EDITOR"
+                    );
+                    setSelectedFamilyIdForMember(editable?.id || primaryFamily?.id || families[0]?.id);
                     setAddMemberModalOpen(true);
                   }}
                   className="gap-2 shadow-xs border-primary/30 text-primary hover:bg-primary/10 font-medium"
@@ -478,76 +505,137 @@ export default function DashboardPage() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {families.map((fam) => (
-                  <Card key={fam.id} className="border-border hover:shadow-md transition-shadow flex flex-col justify-between">
-                    <CardHeader className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{fam.privacy}</Badge>
-                          <span className="text-xs text-muted-foreground">{fam.members_count} members</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                            title="Edit Family (सम्पादन)"
-                            onClick={() => handleOpenEditFamily(fam)}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            title="Delete Family Tree (हटाउनुहोस्)"
-                            onClick={() => {
-                              setFamilyToDelete(fam);
-                              setDeleteConfirmInput("");
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                      <CardTitle className="text-xl font-serif">{fam.name}</CardTitle>
-                      <CardDescription className="line-clamp-2">{fam.description || "No description provided."}</CardDescription>
-                    </CardHeader>
+                {families.map((fam) => {
+                  const role = fam.current_user_role;
+                  const isOwner = role === "OWNER";
+                  const isAdmin = isOwner || role === "ADMIN";
+                  const isEditor = isAdmin || role === "EDITOR";
+                  const isPending = role === "PENDING";
 
-                    <CardContent className="pt-0 space-y-3">
-                      <div className="flex items-center gap-2 pt-2 border-t border-border">
-                        <Link href={`/family/${fam.id}/tree`} className="flex-1">
-                          <Button size="sm" className="w-full gap-1.5 text-xs">
-                            <TreePine className="h-3.5 w-3.5" />
-                            View Tree
-                          </Button>
-                        </Link>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs gap-1 text-primary hover:bg-primary/10 font-medium"
-                          onClick={() => {
-                            setSelectedFamilyIdForMember(fam.id);
-                            setAddMemberModalOpen(true);
-                          }}
-                        >
-                          <UserPlus className="h-3.5 w-3.5" />
-                          Add Member
-                        </Button>
-                        <Link href={`/family/${fam.id}/members`}>
-                          <Button size="sm" variant="ghost" className="text-xs">
-                            Members
-                          </Button>
-                        </Link>
-                        <Link href={`/family/${fam.id}/settings`}>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" title="Family Settings">
-                            <Settings className="h-3.5 w-3.5" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                  return (
+                    <Card key={fam.id} className="border-border hover:shadow-md transition-shadow flex flex-col justify-between">
+                      <CardHeader className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">{fam.privacy}</Badge>
+                            {isOwner && (
+                              <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-400/40 text-[10px]">
+                                Owner (मालिक)
+                              </Badge>
+                            )}
+                            {role === "ADMIN" && (
+                              <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-400/40 text-[10px]">
+                                Admin (व्यवस्थापक)
+                              </Badge>
+                            )}
+                            {role === "EDITOR" && (
+                              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-400/40 text-[10px]">
+                                Editor (सम्पादक)
+                              </Badge>
+                            )}
+                            {role === "VIEWER" && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                Viewer (अवलोकनकर्ता)
+                              </Badge>
+                            )}
+                            {isPending && (
+                              <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-400/40 text-[10px]">
+                                Pending Approval
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">{fam.members_count} members</span>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {isAdmin && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                title="Edit Family (सम्पादन)"
+                                onClick={() => handleOpenEditFamily(fam)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {isOwner && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Delete Family Tree (हटाउनुहोस्)"
+                                onClick={() => {
+                                  setFamilyToDelete(fam);
+                                  setDeleteConfirmInput("");
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <CardTitle className="text-xl font-serif">{fam.name}</CardTitle>
+                        <CardDescription className="line-clamp-2">{fam.description || "No description provided."}</CardDescription>
+                      </CardHeader>
+
+                      <CardContent className="pt-0 space-y-3">
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                          <Link href={`/family/${fam.id}/tree`} className="flex-1">
+                            <Button size="sm" className="w-full gap-1.5 text-xs">
+                              <TreePine className="h-3.5 w-3.5" />
+                              View Tree
+                            </Button>
+                          </Link>
+
+                          {isEditor ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs gap-1 text-primary hover:bg-primary/10 font-medium"
+                              onClick={() => {
+                                setSelectedFamilyIdForMember(fam.id);
+                                setAddMemberModalOpen(true);
+                              }}
+                            >
+                              <UserPlus className="h-3.5 w-3.5" />
+                              Add Member
+                            </Button>
+                          ) : isPending ? (
+                            <Button size="sm" variant="outline" disabled className="text-xs text-orange-600 border-orange-300 gap-1 opacity-80">
+                              <Clock className="h-3.5 w-3.5" />
+                              Pending Approval
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs gap-1 text-primary hover:bg-primary/10 font-medium"
+                              onClick={() => requestAccessMutation.mutate(fam.id)}
+                              disabled={requestAccessMutation.isPending}
+                            >
+                              <Shield className="h-3.5 w-3.5" />
+                              Request Permission
+                            </Button>
+                          )}
+
+                          <Link href={`/family/${fam.id}/members`}>
+                            <Button size="sm" variant="ghost" className="text-xs">
+                              Members
+                            </Button>
+                          </Link>
+
+                          {isAdmin && (
+                            <Link href={`/family/${fam.id}/settings`}>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" title="Family Settings & Permissions">
+                                <Settings className="h-3.5 w-3.5" />
+                              </Button>
+                            </Link>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>

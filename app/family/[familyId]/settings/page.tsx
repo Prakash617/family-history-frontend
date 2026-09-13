@@ -98,11 +98,104 @@ export default function FamilySettingsPage() {
         body: JSON.stringify(data),
       }),
     onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["family-memberships", familyId] });
       setInviteModalOpen(false);
       setInviteEmail("");
       toast({
-        title: "Invitation Created",
-        description: `Token: ${res.token} (Share this with ${res.email})`,
+        title: "Permission Granted / Invited (अनुमति प्रदान गरियो)",
+        description: `User ${inviteEmail} has been granted ${inviteRole} permission.`,
+        type: "success",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Invite Failed",
+        description: err?.message || "Could not grant permission.",
+        type: "error",
+      });
+    },
+  });
+
+  const approveMemberMutation = useMutation({
+    mutationFn: ({ membershipId, role }: { membershipId: string; role: string }) =>
+      apiRequest(`/families/${familyId}/memberships/${membershipId}/approve/`, {
+        method: "POST",
+        body: JSON.stringify({ role }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["family-memberships", familyId] });
+      queryClient.invalidateQueries({ queryKey: ["family", familyId] });
+      toast({
+        title: "Member Approved (स्वीकृत भयो)",
+        description: "User access request has been approved.",
+        type: "success",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Approval Failed",
+        description: err?.message || "Could not approve membership.",
+        type: "error",
+      });
+    },
+  });
+
+  const rejectMemberMutation = useMutation({
+    mutationFn: (membershipId: string) =>
+      apiRequest(`/families/${familyId}/memberships/${membershipId}/reject/`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["family-memberships", familyId] });
+      toast({
+        title: "Request Declined (अस्वीकृत भयो)",
+        description: "Access request has been declined.",
+        type: "info",
+      });
+    },
+  });
+
+  const updateMemberRoleMutation = useMutation({
+    mutationFn: ({ membershipId, role }: { membershipId: string; role: string }) =>
+      apiRequest(`/families/${familyId}/memberships/${membershipId}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["family-memberships", familyId] });
+      toast({
+        title: "Role Updated (अनुमति परिवर्तन भयो)",
+        description: "User role and permissions updated successfully.",
+        type: "success",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Update Failed",
+        description: err?.message || "Could not update role.",
+        type: "error",
+      });
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: (membershipId: string) =>
+      apiRequest(`/families/${familyId}/memberships/${membershipId}/`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["family-memberships", familyId] });
+      toast({
+        title: "Member Removed (अनुमति हटाइयो)",
+        description: "User access to this family has been revoked.",
+        type: "info",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Removal Failed",
+        description: err?.message || "Could not revoke access.",
+        type: "error",
       });
     },
   });
@@ -187,41 +280,143 @@ export default function FamilySettingsPage() {
             </Card>
 
             {/* Memberships & Roles */}
-            <Card className="border-border">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary" />
-                    Family Members
-                  </CardTitle>
-                  <CardDescription>Users authorized to view or edit this tree.</CardDescription>
-                </div>
-                <Button size="sm" onClick={() => setInviteModalOpen(true)} className="text-xs gap-1">
-                  <Mail className="h-3.5 w-3.5" />
-                  Invite
-                </Button>
-              </CardHeader>
-
-              <CardContent className="space-y-3 pt-3">
-                <div className="divide-y divide-border border border-border rounded-lg bg-card">
-                  {memberships && memberships.length > 0 ? (
-                    memberships.map((m: any) => (
-                      <div key={m.id} className="p-3 flex items-center justify-between text-xs">
-                        <div>
-                          <div className="font-semibold text-foreground">{m.user.full_name || m.user.email}</div>
-                          <div className="text-[11px] text-muted-foreground">{m.user.email}</div>
-                        </div>
-                        <Badge variant="outline">{m.role}</Badge>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-4 text-center text-xs text-muted-foreground">
-                      Only owner is currently assigned.
+            <div className="space-y-4">
+              {memberships && memberships.filter((m: any) => m.status === "PENDING").length > 0 && (
+                <Card className="border-orange-300 dark:border-orange-800/60 bg-orange-50/40 dark:bg-orange-950/20">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base font-semibold text-orange-900 dark:text-orange-200 flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-orange-600" />
+                        Pending Access Requests (स्वीकृति बाँकी)
+                      </CardTitle>
+                      <Badge className="bg-orange-600 text-white text-[11px]">
+                        {memberships.filter((m: any) => m.status === "PENDING").length} Pending
+                      </Badge>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    <CardDescription className="text-xs text-orange-800/80 dark:text-orange-300/80">
+                      Users who requested permission to participate in this lineage.
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="space-y-2.5 pt-1">
+                    {memberships.filter((m: any) => m.status === "PENDING").map((m: any) => (
+                      <div key={m.id} className="p-3 rounded-lg border border-orange-200 dark:border-orange-900/50 bg-background flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+                        <div>
+                          <div className="font-semibold text-foreground">{m.user?.full_name || m.user?.email}</div>
+                          <div className="text-[11px] text-muted-foreground">{m.user?.email}</div>
+                          <span className="text-[10px] text-orange-700 dark:text-orange-300 font-medium">
+                            Requested: {m.role} access
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-emerald-700 hover:bg-emerald-800 text-white"
+                            onClick={() => approveMemberMutation.mutate({ membershipId: m.id, role: "EDITOR" })}
+                            disabled={approveMemberMutation.isPending}
+                          >
+                            Approve as Editor
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => approveMemberMutation.mutate({ membershipId: m.id, role: "VIEWER" })}
+                            disabled={approveMemberMutation.isPending}
+                          >
+                            Viewer
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                            onClick={() => rejectMemberMutation.mutate(m.id)}
+                            disabled={rejectMemberMutation.isPending}
+                          >
+                            Decline
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card className="border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Users className="h-4 w-4 text-primary" />
+                      Collaborators & Permissions
+                    </CardTitle>
+                    <CardDescription className="text-xs">Manage user roles: Admin, Editor, or Viewer.</CardDescription>
+                  </div>
+                  <Button size="sm" onClick={() => setInviteModalOpen(true)} className="text-xs gap-1">
+                    <Mail className="h-3.5 w-3.5" />
+                    Grant / Invite
+                  </Button>
+                </CardHeader>
+
+                <CardContent className="space-y-3 pt-3">
+                  <div className="divide-y divide-border border border-border rounded-lg bg-card">
+                    {memberships && memberships.filter((m: any) => m.status !== "PENDING").length > 0 ? (
+                      memberships.filter((m: any) => m.status !== "PENDING").map((m: any) => {
+                        const isOwner = m.role === "OWNER" || m.user.id === family?.owner?.id;
+
+                        return (
+                          <div key={m.id} className="p-3.5 flex items-center justify-between text-xs gap-3">
+                            <div>
+                              <div className="font-semibold text-foreground flex items-center gap-1.5">
+                                {m.user.full_name || m.user.email}
+                                {isOwner && (
+                                  <Badge className="bg-amber-500/15 text-amber-700 border-amber-300 text-[10px]">
+                                    Owner (मालिक)
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground">{m.user.email}</div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {isOwner ? (
+                                <span className="text-xs text-muted-foreground font-medium pr-2">Full Control</span>
+                              ) : (
+                                <>
+                                  <select
+                                    value={m.role}
+                                    onChange={(e) => updateMemberRoleMutation.mutate({ membershipId: m.id, role: e.target.value })}
+                                    className="h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground outline-none"
+                                  >
+                                    <option value="ADMIN">Admin (व्यवस्थापक)</option>
+                                    <option value="EDITOR">Editor (सम्पादक)</option>
+                                    <option value="VIEWER">Viewer (अवलोकनकर्ता)</option>
+                                  </select>
+
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    title="Revoke Permission (हटाउनुहोस्)"
+                                    onClick={() => removeMemberMutation.mutate(m.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        Only owner is currently assigned.
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           {/* Danger Zone */}
