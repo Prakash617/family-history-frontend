@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { TreePine, Lock, Mail, User, AlertCircle } from "lucide-react";
+import { TreePine, Lock, Mail, User, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { apiRequest, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -112,14 +114,26 @@ export default function RegisterPage() {
               <label className="text-xs font-medium text-muted-foreground">Password</label>
               <div className="relative">
                 <Input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   placeholder="Minimum 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 pr-10"
                 />
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 p-0.5 text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -127,14 +141,26 @@ export default function RegisterPage() {
               <label className="text-xs font-medium text-muted-foreground">Confirm Password</label>
               <div className="relative">
                 <Input
-                  type="password"
+                  type={showPasswordConfirm ? "text" : "password"}
                   required
                   placeholder="Re-enter password"
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 pr-10"
                 />
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                  className="absolute right-3 top-2.5 p-0.5 text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
+                  aria-label={showPasswordConfirm ? "Hide password" : "Show password"}
+                >
+                  {showPasswordConfirm ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
             </div>
 
