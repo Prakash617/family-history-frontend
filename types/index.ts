@@ -21,6 +21,8 @@ export interface Family {
   owner: User;
   privacy: "PUBLIC" | "PRIVATE" | "INVITE_ONLY";
   members_count: number;
+  photos_count?: number;
+  stories_count?: number;
   current_user_role?: "OWNER" | "ADMIN" | "EDITOR" | "VIEWER" | null;
   created_at: string;
   updated_at: string;

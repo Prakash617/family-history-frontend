@@ -39,6 +39,14 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Authentication Guard: Disallow unauthenticated visitors from accessing dashboard
+  React.useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/login?redirect=/dashboard");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newFamilyName, setNewFamilyName] = useState("");
   const [newFamilyDesc, setNewFamilyDesc] = useState("");
@@ -131,6 +139,7 @@ export default function DashboardPage() {
   const { data: familiesData, isLoading: familiesLoading } = useQuery({
     queryKey: ["families"],
     queryFn: () => apiRequest<{ results: Family[] }>("/families/"),
+    enabled: isAuthenticated,
   });
 
   const families = familiesData?.results || [];
@@ -325,6 +334,21 @@ export default function DashboardPage() {
     }
     addMemberMutation.mutate();
   };
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-3">
+          <div className="h-9 w-9 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+          <p className="text-sm text-muted-foreground font-medium">
+            {authLoading
+              ? "प्रमाणीकरण जाँच हुँदैछ (Checking Authentication)..."
+              : "लगइन पृष्ठमा लैजाँदैछ (Redirecting to Sign In)..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

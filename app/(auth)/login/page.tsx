@@ -32,7 +32,10 @@ export default function LoginPage() {
       });
 
       login(data.access, data.refresh, data.user);
-      router.push("/dashboard");
+      const redirectUrl = typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("redirect") || "/dashboard"
+        : "/dashboard";
+      router.push(redirectUrl);
     } catch (err: any) {
       setError(err instanceof ApiError ? err.message : "Failed to sign in. Please check your credentials.");
     } finally {
